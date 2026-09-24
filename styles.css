@@ -732,3 +732,12 @@ body.ux-block-dragging{
   .ux-block{min-height:34px}
   .ux-block-grip{font-size:10px}
 }
+
+.sync-badge{display:flex;align-items:center;gap:5px;margin-left:3px;color:var(--muted);font-size:7px;white-space:nowrap}
+.sync-badge i{width:7px;height:7px;border-radius:50%;background:#d3a236}
+.sync-badge.online i{background:var(--green)}
+.sync-badge.offline i{background:#c44d4d}
+.sync-badge.syncing i{background:#d3a236;animation:syncPulse 1s infinite alternate}
+@keyframes syncPulse{from{opacity:.35}to{opacity:1}}
+.mind-viewport.tool-eraser{cursor:cell}
+@media(max-width:760px){.sync-badge span{display:none}}

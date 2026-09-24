@@ -295,35 +295,15 @@
       </header>
 
       <div class="modal-body">
-        <section class="form-section">
-          <div class="form-grid">
+        <section class="form-section compact-task-form">
+          <div class="form-grid compact-primary-grid">
             <label class="wide">
               <span>Título</span>
               <input id="editTitle" type="text">
             </label>
             <label>
-              <span>Bloco</span>
-              <input id="editEpic" type="text">
-            </label>
-            <label>
               <span>Responsável</span>
               <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>
-            </label>
-            <label>
-              <span>Prioridade</span>
-              <select id="editPriority">
-                <option value="critical">Crítica</option>
-                <option value="high">Alta</option>
-                <option value="medium">Média</option>
-                <option value="low">Baixa</option>
-              </select>
-            </label>
-            <label>
-              <span>Pontos</span>
-              <select id="editPoints">
-                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                <option value="5">5</option><option value="8">8</option><option value="13">13</option>
-              </select>
             </label>
             <label>
               <span>Status</span>
@@ -337,38 +317,58 @@
             </label>
           </div>
 
-          <label class="field">
-            <span>Definição de pronto</span>
-            <textarea id="editDescription" rows="3"></textarea>
-          </label>
+          <details class="compact-details">
+            <summary>Mais opções</summary>
+            <div class="form-grid compact-extra-grid">
+              <label>
+                <span>Área / Módulo</span>
+                <input id="editEpic" type="text" placeholder="Opcional">
+              </label>
+              <label>
+                <span>Prioridade</span>
+                <select id="editPriority">
+                  <option value="critical">Crítica</option>
+                  <option value="high">Alta</option>
+                  <option value="medium">Média</option>
+                  <option value="low">Baixa</option>
+                </select>
+              </label>
+              <label>
+                <span>Pontos</span>
+                <select id="editPoints">
+                  <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                  <option value="5">5</option><option value="8">8</option><option value="13">13</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">
+              <span>Definição de pronto</span>
+              <textarea id="editDescription" rows="2" placeholder="Opcional"></textarea>
+            </label>
+            <label class="field notes-field">
+              <span>Notas</span>
+              <textarea id="editNotes" rows="2" placeholder="Links, decisões ou bloqueios"></textarea>
+            </label>
+          </details>
         </section>
 
-        <section class="detail-section">
-          <div class="section-title">
-            <div>
-              <h3>Subcards</h3>
-              <p>Quebre a tarefa apenas quando precisar.</p>
-            </div>
+        <details class="detail-section compact-details task-detail-group">
+          <summary>Subcards <span id="subcardSummaryCount"></span></summary>
+          <div class="section-title compact-section-title">
+            <p>Quebre a tarefa apenas quando precisar.</p>
             <button class="button button-ghost" id="addSubcardBtn" type="button">Adicionar</button>
           </div>
           <div id="subcardsContainer" class="subcards"></div>
-        </section>
+        </details>
 
-        <section class="detail-section">
-          <div class="section-title">
-            <div>
-              <h3>Checklist</h3>
-              <p>Itens objetivos e comentários de execução.</p>
-            </div>
+        <details class="detail-section compact-details task-detail-group">
+          <summary>Checklist <span id="checklistSummaryCount"></span></summary>
+          <div class="section-title compact-section-title">
+            <p>Itens objetivos e comentários de execução.</p>
             <button class="button button-ghost" id="addChecklistBtn" type="button">Adicionar</button>
           </div>
           <div id="checklistContainer" class="checklist"></div>
-        </section>
-
-        <label class="field notes-field">
-          <span>Notas</span>
-          <textarea id="editNotes" rows="2" placeholder="Links, decisões ou bloqueios"></textarea>
-        </label>
+        </details>
       </div>
 
       <footer class="modal-footer">
@@ -391,49 +391,54 @@
         <button class="modal-close" id="closeNewCardModal" type="button" aria-label="Fechar">×</button>
       </header>
 
-      <form id="newCardForm" class="modal-body">
-        <div class="form-grid">
+      <form id="newCardForm" class="modal-body compact-new-task">
+        <div class="form-grid compact-primary-grid">
           <label class="wide">
             <span>Título</span>
-            <input name="title" required>
-          </label>
-          <label>
-            <span>Bloco</span>
-            <input name="epic" required>
+            <input name="title" required autofocus placeholder="O que precisa ser feito?">
           </label>
           <label>
             <span>Responsável</span>
             <select name="assignee"><option>Adriel</option><option>Cesar</option></select>
           </label>
-          <label>
-            <span>Prioridade</span>
-            <select name="priority">
-              <option value="critical">Crítica</option>
-              <option value="high">Alta</option>
-              <option value="medium" selected>Média</option>
-              <option value="low">Baixa</option>
-            </select>
-          </label>
-          <label>
-            <span>Pontos</span>
-            <select name="points">
-              <option>1</option><option>2</option><option selected>3</option><option>5</option><option>8</option><option>13</option>
-            </select>
-          </label>
-          <label>
-            <span>Status</span>
-            <select name="status">
-              <option value="backlog">Backlog</option>
-              <option value="planned" selected>Planejado</option>
-              <option value="doing">Em andamento</option>
-            </select>
-          </label>
         </div>
 
-        <label class="field">
-          <span>Definição de pronto</span>
-          <textarea name="description" rows="3" required></textarea>
-        </label>
+        <details class="compact-details">
+          <summary>Mais opções</summary>
+          <div class="form-grid compact-extra-grid">
+            <label>
+              <span>Área / Módulo</span>
+              <input name="epic" placeholder="Opcional">
+            </label>
+            <label>
+              <span>Prioridade</span>
+              <select name="priority">
+                <option value="critical">Crítica</option>
+                <option value="high">Alta</option>
+                <option value="medium" selected>Média</option>
+                <option value="low">Baixa</option>
+              </select>
+            </label>
+            <label>
+              <span>Pontos</span>
+              <select name="points">
+                <option>1</option><option>2</option><option selected>3</option><option>5</option><option>8</option><option>13</option>
+              </select>
+            </label>
+            <label>
+              <span>Status</span>
+              <select name="status">
+                <option value="backlog" selected>Backlog</option>
+                <option value="planned">Planejado</option>
+                <option value="doing">Em andamento</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>Definição de pronto</span>
+            <textarea name="description" rows="2" placeholder="Opcional"></textarea>
+          </label>
+        </details>
       </form>
 
       <footer class="modal-footer">

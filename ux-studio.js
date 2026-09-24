@@ -44,6 +44,8 @@
   let frameDrag = null;
   let uxPanMode = false;
   let uxPanDrag = null;
+  let mobileToolsOpen = false;
+  let mobileInspectorOpen = false;
 
   function save() {
     localStorage.setItem(UX_KEY, JSON.stringify(state));
@@ -473,6 +475,33 @@
       viewport.scrollLeft = Number(saved.uxScrollLeft || 0);
       viewport.scrollTop = Number(saved.uxScrollTop || 0);
     } catch {}
+  }
+
+  function syncMobilePanels() {
+    const root = $("#mindmapView");
+    if (!root) return;
+    root.classList.toggle("mobile-tools-open", mobileToolsOpen);
+    root.classList.toggle("mobile-inspector-open", mobileInspectorOpen);
+    $("#mobileToolsBtn")?.classList.toggle("active", mobileToolsOpen);
+    $("#mobileInspectorBtn")?.classList.toggle("active", mobileInspectorOpen);
+  }
+
+  function toggleMobileTools() {
+    mobileToolsOpen = !mobileToolsOpen;
+    if (mobileToolsOpen) mobileInspectorOpen = false;
+    syncMobilePanels();
+  }
+
+  function toggleMobileInspector() {
+    mobileInspectorOpen = !mobileInspectorOpen;
+    if (mobileInspectorOpen) mobileToolsOpen = false;
+    syncMobilePanels();
+  }
+
+  function closeMobilePanels() {
+    mobileToolsOpen = false;
+    mobileInspectorOpen = false;
+    syncMobilePanels();
   }
 
   function toggleUxPanMode() {
@@ -1049,6 +1078,8 @@
     document.querySelectorAll("[data-ux-component]").forEach(button => {
       button.addEventListener("click", () => addComponent(button.dataset.uxComponent));
     });
+    $("#mobileToolsBtn")?.addEventListener("click", toggleMobileTools);
+    $("#mobileInspectorBtn")?.addEventListener("click", toggleMobileInspector);
     $("#uxPanBtn")?.addEventListener("click", toggleUxPanMode);
     $("#uxFlowBtn")?.addEventListener("click", toggleFlowMode);
     $("#uxCompareBtn")?.addEventListener("click", openCompare);
@@ -1070,9 +1101,13 @@
       endFrameDrag();
       endUxPan();
     });
-    window.addEventListener("resize", () => { if (studioMode === "product") renderConnectors(); });
+    window.addEventListener("resize", () => {
+      if (studioMode === "product") renderConnectors();
+      if (window.innerWidth > 760) closeMobilePanels();
+    });
 
     $("#uxViewport")?.addEventListener("click", event => {
+      if (window.innerWidth <= 760) closeMobilePanels();
       if (event.target === $("#uxViewport") || event.target === $("#uxCanvas") || event.target === $("#uxFrames")) {
         state.selectedFrameId = null;
         state.selectedBlockId = null;

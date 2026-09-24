@@ -33,6 +33,9 @@
         <strong>Operação ORÇAH</strong>
         <span>Kanban de execução</span>
       </div>
+      <div class="sync-badge" id="syncBadge" title="Status da sincronização">
+        <i></i><span>Conectando</span>
+      </div>
     </div>
 
     <nav class="view-tabs" aria-label="Área de trabalho">
@@ -90,6 +93,7 @@
           <button class="mind-tool active" type="button" data-mind-tool="select">Selecionar</button>
           <button class="mind-tool" type="button" data-mind-tool="hand">Mover</button>
           <button class="mind-tool" type="button" data-mind-tool="draw">Lápis</button>
+          <button class="mind-tool" type="button" data-mind-tool="eraser">Borracha</button>
           <button class="mind-tool" type="button" data-mind-tool="note">Caixa</button>
           <button class="mind-tool" type="button" data-mind-tool="text">Texto</button>
           <button class="mind-tool" type="button" data-mind-tool="frame">Frame</button>
@@ -483,8 +487,10 @@
 
   <div id="toastRegion" class="toast-region" aria-live="polite"></div>
   <script src="./access.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
   <script src="./ux-snapshot.js"></script>
   <script src="./ux-studio.js"></script>
+  <script src="./sync.js"></script>
 </body>
 </html>

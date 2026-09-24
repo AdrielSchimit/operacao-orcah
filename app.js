@@ -673,7 +673,7 @@
   function duplicateCard(id) {
     const original = cards.find(item => item.id === id);
     if (!original) return;
-    const copy = structuredClone ? structuredClone(original) : JSON.parse(JSON.stringify(original));
+    const copy = typeof structuredClone === "function" ? structuredClone(original) : JSON.parse(JSON.stringify(original));
     copy.id = uid();
     copy.title = `${copy.title} — cópia`;
     copy.status = "planned";

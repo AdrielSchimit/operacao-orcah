@@ -2,6 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "operacao-orcah-kanban-v3";
+  const MIND_KEY = "operacao-orcah-mindmap-v1";
   const LEGACY_KEYS = ["operacao-orcah-board-v1"];
 
   const COLUMNS = [
@@ -987,7 +988,493 @@
     if (topMenu) topMenu.hidden = true;
   }
 
+
+  let currentView = "kanban";
+  let mindTool = "select";
+  let selectedMindId = null;
+  let connectorStartId = null;
+  let mindInteraction = null;
+
+  function loadMind() {
+    try {
+      const raw = localStorage.getItem(MIND_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          return {
+            zoom: Number(parsed.zoom || 1),
+            panX: Number(parsed.panX ?? 120),
+            panY: Number(parsed.panY ?? 80),
+            elements: Array.isArray(parsed.elements) ? parsed.elements : [],
+            connectors: Array.isArray(parsed.connectors) ? parsed.connectors : [],
+            drawings: Array.isArray(parsed.drawings) ? parsed.drawings : []
+          };
+        }
+      }
+    } catch {}
+    return { zoom: 1, panX: 120, panY: 80, elements: [], connectors: [], drawings: [] };
+  }
+
+  let mindState = loadMind();
+
+  function persistMind() {
+    localStorage.setItem(MIND_KEY, JSON.stringify(mindState));
+  }
+
+  function setView(view) {
+    currentView = view;
+    const isKanban = view === "kanban";
+    $("#kanbanView").hidden = !isKanban;
+    $("#mindmapView").hidden = isKanban;
+    $("#kanbanSearch").hidden = !isKanban;
+    ["#assigneeFilter","#priorityFilter","#clearFiltersBtn","#newCardBtn","#moreButton"].forEach(selector => {
+      const node = $(selector);
+      if (node) node.hidden = !isKanban;
+    });
+    document.querySelectorAll(".view-tab").forEach(button => {
+      button.classList.toggle("active", button.dataset.view === view);
+    });
+    if (!isKanban) {
+      closeMenus();
+      renderMind();
+      requestAnimationFrame(() => $("#mindViewport")?.focus());
+    }
+  }
+
+  function setMindTool(tool) {
+    mindTool = tool;
+    connectorStartId = null;
+    document.querySelectorAll(".mind-tool").forEach(button => {
+      button.classList.toggle("active", button.dataset.mindTool === tool);
+    });
+    const viewport = $("#mindViewport");
+    if (!viewport) return;
+    viewport.classList.remove("tool-hand","tool-draw");
+    if (tool === "hand") viewport.classList.add("tool-hand");
+    if (tool === "draw") viewport.classList.add("tool-draw");
+  }
+
+  function applyMindTransform() {
+    const world = $("#mindWorld");
+    if (!world) return;
+    world.style.transform = `translate(${mindState.panX}px, ${mindState.panY}px) scale(${mindState.zoom})`;
+    $("#zoomLabel").textContent = `${Math.round(mindState.zoom * 100)}%`;
+  }
+
+  function worldPoint(clientX, clientY) {
+    const rect = $("#mindViewport").getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - mindState.panX) / mindState.zoom,
+      y: (clientY - rect.top - mindState.panY) / mindState.zoom
+    };
+  }
+
+  function mindCenterPoint() {
+    const rect = $("#mindViewport").getBoundingClientRect();
+    return {
+      x: (rect.width / 2 - mindState.panX) / mindState.zoom,
+      y: (rect.height / 2 - mindState.panY) / mindState.zoom
+    };
+  }
+
+  function addMindElement(type, options = {}) {
+    const center = mindCenterPoint();
+    const defaults = {
+      note: { w: 220, h: 120, text: "Nova ideia" },
+      text: { w: 210, h: 54, text: "Novo texto" },
+      frame: { w: 520, h: 340, text: "Novo frame" }
+    };
+    const base = defaults[type] || defaults.note;
+    const element = {
+      id: uid(),
+      type,
+      x: Number(options.x ?? center.x - base.w / 2),
+      y: Number(options.y ?? center.y - base.h / 2),
+      w: Number(options.w ?? base.w),
+      h: Number(options.h ?? base.h),
+      text: String(options.text ?? base.text),
+      src: options.src || "",
+      templateKind: options.templateKind || ""
+    };
+    mindState.elements.push(element);
+    selectedMindId = element.id;
+    persistMind();
+    renderMind();
+    return element;
+  }
+
+  function templateMarkup(kind) {
+    if (kind === "mobile") {
+      return `<div class="wf-phone"><div class="wf-phone-bar"></div><div class="wf-phone-body">
+        <div class="wf-line sm"></div><div class="wf-line md"></div><div class="wf-box"></div><div class="wf-box"></div><div class="wf-button"></div>
+      </div></div>`;
+    }
+
+    const configs = {
+      login: ["Login", false, 1],
+      dashboard: ["Dashboard", true, 3],
+      list: ["Lista", true, 4],
+      form: ["Formulário", false, 4],
+      client: ["Cliente", true, 3],
+      budget: ["Orçamento", true, 4],
+      public: ["Página pública", false, 3]
+    };
+    const [title, sidebar, boxes] = configs[kind] || ["Tela", true, 3];
+    return `<div class="wireframe">
+      <div class="wf-top"><span class="wf-dot"></span><span class="wf-dot"></span><span class="wf-dot"></span><strong style="font-size:8px;margin-left:4px">${title}</strong></div>
+      <div class="wf-body" style="${sidebar ? "" : "grid-template-columns:1fr"}">
+        ${sidebar ? '<div class="wf-side"></div>' : ""}
+        <div class="wf-main">
+          <div class="wf-line sm"></div><div class="wf-line md"></div>
+          <div class="wf-row">${Array.from({length:Math.min(3,boxes)},()=>'<div class="wf-box"></div>').join("")}</div>
+          ${boxes > 3 ? '<div class="wf-box"></div>' : ""}
+          <div class="wf-button"></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function addMindTemplate(kind) {
+    const sizes = {
+      login: [360,260], dashboard:[520,330], list:[520,320], form:[420,330],
+      client:[500,330], budget:[540,360], public:[430,340], mobile:[220,420]
+    };
+    const [w,h] = sizes[kind] || [480,320];
+    addMindElement("template", { w, h, text: kind, templateKind: kind });
+  }
+
+  function renderMind() {
+    const elementsLayer = $("#mindElements");
+    const svg = $("#mindSvg");
+    if (!elementsLayer || !svg) return;
+
+    elementsLayer.innerHTML = "";
+    svg.innerHTML = "";
+
+    mindState.drawings.forEach(drawing => {
+      const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+      path.setAttribute("class","mind-drawing");
+      path.setAttribute("d", drawing.d || "");
+      svg.appendChild(path);
+    });
+
+    mindState.connectors.forEach(connector => {
+      const from = mindState.elements.find(item => item.id === connector.from);
+      const to = mindState.elements.find(item => item.id === connector.to);
+      if (!from || !to) return;
+      const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("class","mind-connector");
+      line.setAttribute("x1", from.x + from.w / 2);
+      line.setAttribute("y1", from.y + from.h / 2);
+      line.setAttribute("x2", to.x + to.w / 2);
+      line.setAttribute("y2", to.y + to.h / 2);
+      svg.appendChild(line);
+    });
+
+    mindState.elements.forEach(element => {
+      const node = document.createElement("article");
+      node.className = `mind-node ${element.type}${selectedMindId === element.id ? " selected" : ""}`;
+      node.dataset.id = element.id;
+      node.style.left = `${element.x}px`;
+      node.style.top = `${element.y}px`;
+      node.style.width = `${element.w}px`;
+      node.style.height = `${element.h}px`;
+
+      if (element.type === "image") {
+        const image = document.createElement("img");
+        image.src = element.src;
+        image.alt = element.text || "Imagem";
+        node.appendChild(image);
+      } else if (element.type === "template") {
+        node.innerHTML = templateMarkup(element.templateKind);
+      } else {
+        const content = document.createElement("div");
+        content.className = "mind-node-content";
+        content.textContent = element.text;
+        content.contentEditable = "false";
+        content.spellcheck = false;
+        content.addEventListener("dblclick", event => {
+          event.stopPropagation();
+          content.contentEditable = "true";
+          content.focus();
+          const range = document.createRange();
+          range.selectNodeContents(content);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+        });
+        content.addEventListener("blur", () => {
+          content.contentEditable = "false";
+          element.text = content.textContent.trim() || "Sem título";
+          persistMind();
+        });
+        node.appendChild(content);
+      }
+
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "mind-delete";
+      deleteButton.type = "button";
+      deleteButton.textContent = "×";
+      deleteButton.addEventListener("pointerdown", event => event.stopPropagation());
+      deleteButton.addEventListener("click", event => {
+        event.stopPropagation();
+        deleteMindElement(element.id);
+      });
+      node.appendChild(deleteButton);
+
+      const resize = document.createElement("span");
+      resize.className = "mind-resize";
+      resize.addEventListener("pointerdown", event => startMindResize(event, element.id));
+      node.appendChild(resize);
+
+      node.addEventListener("pointerdown", event => startMindNodePointer(event, element.id));
+      node.addEventListener("click", event => {
+        event.stopPropagation();
+        if (mindTool === "connector") {
+          handleConnectorClick(element.id);
+          return;
+        }
+        selectedMindId = element.id;
+        renderMind();
+      });
+
+      elementsLayer.appendChild(node);
+    });
+
+    $("#mindEmpty").classList.toggle("hidden", mindState.elements.length > 0 || mindState.drawings.length > 0);
+    applyMindTransform();
+  }
+
+  function startMindNodePointer(event, id) {
+    if (event.button !== 0 || event.target.closest(".mind-resize") || event.target.closest(".mind-delete")) return;
+    if (mindTool === "connector") return;
+    if (mindTool !== "select") return;
+    const element = mindState.elements.find(item => item.id === id);
+    if (!element) return;
+    selectedMindId = id;
+    const start = worldPoint(event.clientX,event.clientY);
+    mindInteraction = {
+      type:"drag",
+      id,
+      startX:start.x,
+      startY:start.y,
+      originX:element.x,
+      originY:element.y
+    };
+    event.preventDefault();
+  }
+
+  function startMindResize(event, id) {
+    const element = mindState.elements.find(item => item.id === id);
+    if (!element) return;
+    selectedMindId = id;
+    const start = worldPoint(event.clientX,event.clientY);
+    mindInteraction = {
+      type:"resize",
+      id,
+      startX:start.x,
+      startY:start.y,
+      originW:element.w,
+      originH:element.h
+    };
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function deleteMindElement(id) {
+    mindState.elements = mindState.elements.filter(item => item.id !== id);
+    mindState.connectors = mindState.connectors.filter(item => item.from !== id && item.to !== id);
+    if (selectedMindId === id) selectedMindId = null;
+    persistMind();
+    renderMind();
+  }
+
+  function handleConnectorClick(id) {
+    if (!connectorStartId) {
+      connectorStartId = id;
+      selectedMindId = id;
+      renderMind();
+      toast("Selecione o segundo bloco.");
+      return;
+    }
+    if (connectorStartId === id) {
+      connectorStartId = null;
+      return;
+    }
+    const exists = mindState.connectors.some(item =>
+      (item.from === connectorStartId && item.to === id) ||
+      (item.from === id && item.to === connectorStartId)
+    );
+    if (!exists) mindState.connectors.push({ id:uid(), from:connectorStartId, to:id });
+    connectorStartId = null;
+    persistMind();
+    renderMind();
+  }
+
+  function zoomMind(delta, anchorClientX = null, anchorClientY = null) {
+    const viewport = $("#mindViewport");
+    const rect = viewport.getBoundingClientRect();
+    const ax = anchorClientX ?? rect.left + rect.width / 2;
+    const ay = anchorClientY ?? rect.top + rect.height / 2;
+    const before = worldPoint(ax,ay);
+    const next = Math.min(2.2, Math.max(.35, mindState.zoom + delta));
+    if (next === mindState.zoom) return;
+    mindState.zoom = next;
+    mindState.panX = ax - rect.left - before.x * next;
+    mindState.panY = ay - rect.top - before.y * next;
+    persistMind();
+    applyMindTransform();
+  }
+
+  function resetMindView() {
+    mindState.zoom = 1;
+    mindState.panX = 120;
+    mindState.panY = 80;
+    persistMind();
+    applyMindTransform();
+  }
+
+  function mindPointerDown(event) {
+    if (event.target !== $("#mindViewport") && event.target !== $("#mindWorld") && event.target !== $("#mindElements")) return;
+    if (event.button === 1 || mindTool === "hand") {
+      mindInteraction = { type:"pan", clientX:event.clientX, clientY:event.clientY, panX:mindState.panX, panY:mindState.panY };
+      $("#mindViewport").classList.add("panning");
+      event.preventDefault();
+      return;
+    }
+
+    if (mindTool === "draw" && event.button === 0) {
+      const point = worldPoint(event.clientX,event.clientY);
+      const drawing = { id:uid(), d:`M ${point.x} ${point.y}` };
+      mindState.drawings.push(drawing);
+      mindInteraction = { type:"draw", id:drawing.id };
+      renderMind();
+      event.preventDefault();
+      return;
+    }
+
+    if (event.button !== 0) return;
+
+    selectedMindId = null;
+    if (mindTool === "note") addMindElement("note", { x:worldPoint(event.clientX,event.clientY).x - 110, y:worldPoint(event.clientX,event.clientY).y - 60 });
+    if (mindTool === "text") addMindElement("text", { x:worldPoint(event.clientX,event.clientY).x - 105, y:worldPoint(event.clientX,event.clientY).y - 27 });
+    if (mindTool === "frame") addMindElement("frame", { x:worldPoint(event.clientX,event.clientY).x - 260, y:worldPoint(event.clientX,event.clientY).y - 170 });
+    if (mindTool === "select" || mindTool === "connector") renderMind();
+  }
+
+  function mindPointerMove(event) {
+    if (!mindInteraction) return;
+
+    if (mindInteraction.type === "pan") {
+      mindState.panX = mindInteraction.panX + (event.clientX - mindInteraction.clientX);
+      mindState.panY = mindInteraction.panY + (event.clientY - mindInteraction.clientY);
+      applyMindTransform();
+      return;
+    }
+
+    if (mindInteraction.type === "drag") {
+      const element = mindState.elements.find(item => item.id === mindInteraction.id);
+      if (!element) return;
+      const point = worldPoint(event.clientX,event.clientY);
+      element.x = Math.round(mindInteraction.originX + point.x - mindInteraction.startX);
+      element.y = Math.round(mindInteraction.originY + point.y - mindInteraction.startY);
+      renderMind();
+      return;
+    }
+
+    if (mindInteraction.type === "resize") {
+      const element = mindState.elements.find(item => item.id === mindInteraction.id);
+      if (!element) return;
+      const point = worldPoint(event.clientX,event.clientY);
+      element.w = Math.max(80, Math.round(mindInteraction.originW + point.x - mindInteraction.startX));
+      element.h = Math.max(40, Math.round(mindInteraction.originH + point.y - mindInteraction.startY));
+      renderMind();
+      return;
+    }
+
+    if (mindInteraction.type === "draw") {
+      const drawing = mindState.drawings.find(item => item.id === mindInteraction.id);
+      if (!drawing) return;
+      const point = worldPoint(event.clientX,event.clientY);
+      drawing.d += ` L ${point.x} ${point.y}`;
+      renderMind();
+    }
+  }
+
+  function mindPointerUp() {
+    if (!mindInteraction) return;
+    mindInteraction = null;
+    $("#mindViewport")?.classList.remove("panning");
+    persistMind();
+  }
+
+  function handleMindImage(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      addMindElement("image", { w:320, h:220, text:file.name, src:String(reader.result) });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function exportMind() {
+    const payload = {
+      product:"ORÇAH",
+      type:"mindmap",
+      version:1,
+      exportedAt:new Date().toISOString(),
+      mindState
+    };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `orcah-mapa-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function clearMind() {
+    if (!confirm("Limpar todo o mapa mental?")) return;
+    mindState = { zoom:1, panX:120, panY:80, elements:[], connectors:[], drawings:[] };
+    selectedMindId = null;
+    persistMind();
+    renderMind();
+  }
+
   function wireEvents() {
+    document.querySelectorAll(".view-tab").forEach(button => {
+      button.addEventListener("click", () => setView(button.dataset.view));
+    });
+    document.querySelectorAll(".mind-tool[data-mind-tool]").forEach(button => {
+      button.addEventListener("click", () => setMindTool(button.dataset.mindTool));
+    });
+    document.querySelectorAll(".template-item").forEach(button => {
+      button.addEventListener("click", () => addMindTemplate(button.dataset.template));
+    });
+
+    $("#mindViewport").addEventListener("pointerdown", mindPointerDown);
+    window.addEventListener("pointermove", mindPointerMove);
+    window.addEventListener("pointerup", mindPointerUp);
+    $("#mindViewport").addEventListener("wheel", event => {
+      event.preventDefault();
+      zoomMind(event.deltaY < 0 ? .1 : -.1, event.clientX, event.clientY);
+    }, { passive:false });
+
+    $("#zoomInBtn").addEventListener("click", () => zoomMind(.1));
+    $("#zoomOutBtn").addEventListener("click", () => zoomMind(-.1));
+    $("#zoomResetBtn").addEventListener("click", resetMindView);
+    $("#mindImageButton").addEventListener("click", () => $("#mindImageInput").click());
+    $("#mindImageInput").addEventListener("change", event => {
+      const file = event.target.files?.[0];
+      if (file) handleMindImage(file);
+      event.target.value = "";
+    });
+    $("#mindExportBtn").addEventListener("click", exportMind);
+    $("#mindClearBtn").addEventListener("click", clearMind);
+
     $("#newCardBtn").addEventListener("click", openNewCardModal);
     $("#moreButton").addEventListener("click", event => {
       event.stopPropagation();
@@ -1052,4 +1539,6 @@
 
   wireEvents();
   renderBoard();
+  renderMind();
+  setView("kanban");
 })();

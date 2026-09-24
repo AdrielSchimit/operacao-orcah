@@ -5,76 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="Kanban operacional do projeto ORÇAH">
-  <title>Operação ORÇAH — Kanban</title>
+  <title>Operação ORÇAH</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <header class="app-header">
+  <header class="topbar">
     <div class="brand">
       <div class="brand-mark">O</div>
-      <div>
+      <div class="brand-copy">
         <strong>Operação ORÇAH</strong>
-        <span>Kanban de execução — Adriel + Cesar</span>
+        <span>Kanban de execução</span>
       </div>
     </div>
 
-    <div class="header-actions">
-      <button class="btn btn-secondary" id="exportBtn" type="button">Exportar</button>
-      <button class="btn btn-secondary" id="importBtn" type="button">Importar</button>
-      <button class="btn btn-primary" id="newCardBtn" type="button">Nova tarefa</button>
+    <div class="topbar-search">
+      <input id="searchInput" type="search" placeholder="Buscar tarefa..." autocomplete="off">
+    </div>
+
+    <div class="topbar-actions">
+      <select id="assigneeFilter" aria-label="Filtrar por responsável">
+        <option value="all">Todos</option>
+        <option value="Adriel">Adriel</option>
+        <option value="Cesar">Cesar</option>
+      </select>
+      <select id="priorityFilter" aria-label="Filtrar por prioridade">
+        <option value="all">Prioridade</option>
+        <option value="critical">Crítica</option>
+        <option value="high">Alta</option>
+        <option value="medium">Média</option>
+        <option value="low">Baixa</option>
+      </select>
+      <button class="button button-ghost desktop-only" id="clearFiltersBtn" type="button">Limpar</button>
+      <button class="button button-primary" id="newCardBtn" type="button">Nova tarefa</button>
+      <button class="icon-menu" id="moreButton" type="button" aria-label="Mais opções">⋯</button>
+      <div class="top-menu" id="topMenu" hidden>
+        <button id="exportBtn" type="button">Exportar quadro</button>
+        <button id="importBtn" type="button">Importar quadro</button>
+      </div>
       <input id="importFile" type="file" accept="application/json" hidden>
     </div>
   </header>
 
-  <main class="page">
-    <section class="summary">
+  <main class="workspace">
+    <section class="board-header">
       <div>
-        <span class="eyebrow">PROJETO</span>
-        <h1>Roadmap ORÇAH</h1>
-        <p>Organize o que falta, divida por responsável, estime pontos e acompanhe a execução sem perder o contexto.</p>
+        <h1>Roadmap</h1>
+        <p>Arraste os cards entre as colunas. Clique para abrir.</p>
       </div>
-
-      <div class="progress-card">
-        <div class="progress-row">
-          <span>Progresso geral</span>
-          <strong id="progressPercent">0%</strong>
-        </div>
-        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot">
-          <span id="donePoints">0 pts concluídos</span>
-          <span id="totalPoints">0 pts totais</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="stats">
-      <article><span>Restantes</span><strong id="statRemaining">0</strong><small>pontos</small></article>
-      <article><span>Em andamento</span><strong id="statDoing">0</strong><small>tarefas</small></article>
-      <article><span>Críticas</span><strong id="statCritical">0</strong><small>abertas</small></article>
-      <article><span>Concluídas</span><strong id="statDone">0</strong><small>tarefas</small></article>
-      <article class="dev-stat"><span class="avatar avatar-a">A</span><div><span>Adriel</span><strong id="statAdriel">0 pts</strong></div></article>
-      <article class="dev-stat"><span class="avatar avatar-c">C</span><div><span>Cesar</span><strong id="statCesar">0 pts</strong></div></article>
-    </section>
-
-    <section class="toolbar">
-      <div class="search">
-        <input id="searchInput" type="search" placeholder="Buscar tarefa, bloco, checklist..." autocomplete="off">
-      </div>
-      <div class="filters">
-        <select id="assigneeFilter" aria-label="Filtrar por responsável">
-          <option value="all">Todos os responsáveis</option>
-          <option value="Adriel">Adriel</option>
-          <option value="Cesar">Cesar</option>
-        </select>
-        <select id="priorityFilter" aria-label="Filtrar por prioridade">
-          <option value="all">Todas as prioridades</option>
-          <option value="critical">Crítica</option>
-          <option value="high">Alta</option>
-          <option value="medium">Média</option>
-          <option value="low">Baixa</option>
-        </select>
-        <button class="btn btn-secondary" id="clearFiltersBtn" type="button">Limpar</button>
-      </div>
+      <div class="board-summary" id="boardSummary">0 tarefas</div>
     </section>
 
     <section id="board" class="board" aria-label="Kanban ORÇAH"></section>
@@ -84,100 +62,94 @@
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <header class="modal-header">
         <div>
-          <span class="eyebrow" id="modalEpic">TAREFA</span>
+          <span class="modal-kicker" id="modalEpic">TAREFA</span>
           <h2 id="modalTitle">Detalhes da tarefa</h2>
         </div>
-        <button class="icon-button" id="closeCardModal" type="button" aria-label="Fechar">×</button>
+        <button class="modal-close" id="closeCardModal" type="button" aria-label="Fechar">×</button>
       </header>
 
       <div class="modal-body">
-        <div class="form-grid">
-          <label class="span-2">
-            <span>Título</span>
-            <input id="editTitle" type="text">
-          </label>
-          <label>
-            <span>Bloco</span>
-            <input id="editEpic" type="text">
-          </label>
-          <label>
-            <span>Responsável</span>
-            <select id="editAssignee">
-              <option>Adriel</option>
-              <option>Cesar</option>
-            </select>
-          </label>
-          <label>
-            <span>Prioridade</span>
-            <select id="editPriority">
-              <option value="critical">Crítica</option>
-              <option value="high">Alta</option>
-              <option value="medium">Média</option>
-              <option value="low">Baixa</option>
-            </select>
-          </label>
-          <label>
-            <span>Pontos</span>
-            <select id="editPoints">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="5">5</option>
-              <option value="8">8</option>
-              <option value="13">13</option>
-            </select>
-          </label>
-          <label>
-            <span>Status</span>
-            <select id="editStatus">
-              <option value="backlog">Backlog</option>
-              <option value="planned">Planejado</option>
-              <option value="doing">Em andamento</option>
-              <option value="review">Revisão</option>
-              <option value="done">Concluído</option>
-            </select>
-          </label>
-        </div>
+        <section class="form-section">
+          <div class="form-grid">
+            <label class="wide">
+              <span>Título</span>
+              <input id="editTitle" type="text">
+            </label>
+            <label>
+              <span>Bloco</span>
+              <input id="editEpic" type="text">
+            </label>
+            <label>
+              <span>Responsável</span>
+              <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>
+            </label>
+            <label>
+              <span>Prioridade</span>
+              <select id="editPriority">
+                <option value="critical">Crítica</option>
+                <option value="high">Alta</option>
+                <option value="medium">Média</option>
+                <option value="low">Baixa</option>
+              </select>
+            </label>
+            <label>
+              <span>Pontos</span>
+              <select id="editPoints">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                <option value="5">5</option><option value="8">8</option><option value="13">13</option>
+              </select>
+            </label>
+            <label>
+              <span>Status</span>
+              <select id="editStatus">
+                <option value="backlog">Backlog</option>
+                <option value="planned">Planejado</option>
+                <option value="doing">Em andamento</option>
+                <option value="review">Revisão</option>
+                <option value="done">Concluído</option>
+              </select>
+            </label>
+          </div>
 
-        <label class="field">
-          <span>Objetivo / definição de pronto</span>
-          <textarea id="editDescription" rows="4"></textarea>
-        </label>
+          <label class="field">
+            <span>Definição de pronto</span>
+            <textarea id="editDescription" rows="3"></textarea>
+          </label>
+        </section>
 
-        <section class="section-box">
-          <div class="section-head">
+        <section class="detail-section">
+          <div class="section-title">
             <div>
-              <span class="eyebrow">ESTRUTURA</span>
               <h3>Subcards</h3>
-              <p>Use subcards para quebrar um bloco maior em partes executáveis.</p>
+              <p>Quebre a tarefa apenas quando precisar.</p>
             </div>
-            <button class="btn btn-secondary" id="addSubcardBtn" type="button">Adicionar subcard</button>
+            <button class="button button-ghost" id="addSubcardBtn" type="button">Adicionar</button>
           </div>
           <div id="subcardsContainer" class="subcards"></div>
         </section>
 
-        <section class="section-box">
-          <div class="section-head">
+        <section class="detail-section">
+          <div class="section-title">
             <div>
-              <span class="eyebrow">EXECUÇÃO</span>
-              <h3>Checklist geral</h3>
+              <h3>Checklist</h3>
+              <p>Itens objetivos e comentários de execução.</p>
             </div>
-            <button class="btn btn-secondary" id="addChecklistBtn" type="button">Adicionar item</button>
+            <button class="button button-ghost" id="addChecklistBtn" type="button">Adicionar</button>
           </div>
           <div id="checklistContainer" class="checklist"></div>
         </section>
 
-        <label class="field">
+        <label class="field notes-field">
           <span>Notas</span>
-          <textarea id="editNotes" rows="3" placeholder="Decisões, links, bloqueios, handoff..."></textarea>
+          <textarea id="editNotes" rows="2" placeholder="Links, decisões ou bloqueios"></textarea>
         </label>
       </div>
 
       <footer class="modal-footer">
-        <button class="btn btn-danger" id="deleteCardBtn" type="button">Excluir</button>
+        <button class="button button-danger" id="deleteCardBtn" type="button">Excluir</button>
         <div>
-          <button class="btn btn-secondary" id="saveCardBtn" type="button">Salvar alterações</button>
-          <button class="btn btn-success" id="completeCardBtn" type="button">Concluir tarefa</button>
+          <button class="button button-ghost" id="saveCardBtn" type="button">Salvar</button>
+          <button class="button button-success" id="completeCardBtn" type="button">Concluir</button>
         </div>
       </footer>
     </section>
@@ -187,21 +159,21 @@
     <section class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="newCardTitle">
       <header class="modal-header">
         <div>
-          <span class="eyebrow">NOVA TAREFA</span>
+          <span class="modal-kicker">NOVA TAREFA</span>
           <h2 id="newCardTitle">Criar card</h2>
         </div>
-        <button class="icon-button" id="closeNewCardModal" type="button" aria-label="Fechar">×</button>
+        <button class="modal-close" id="closeNewCardModal" type="button" aria-label="Fechar">×</button>
       </header>
 
       <form id="newCardForm" class="modal-body">
         <div class="form-grid">
-          <label class="span-2">
+          <label class="wide">
             <span>Título</span>
-            <input name="title" required placeholder="Ex.: Refazer experiência do WhatsApp">
+            <input name="title" required>
           </label>
           <label>
             <span>Bloco</span>
-            <input name="epic" required placeholder="Ex.: WhatsApp">
+            <input name="epic" required>
           </label>
           <label>
             <span>Responsável</span>
@@ -223,7 +195,7 @@
             </select>
           </label>
           <label>
-            <span>Status inicial</span>
+            <span>Status</span>
             <select name="status">
               <option value="backlog">Backlog</option>
               <option value="planned" selected>Planejado</option>
@@ -231,17 +203,18 @@
             </select>
           </label>
         </div>
+
         <label class="field">
-          <span>Objetivo / definição de pronto</span>
-          <textarea name="description" rows="4" required></textarea>
+          <span>Definição de pronto</span>
+          <textarea name="description" rows="3" required></textarea>
         </label>
       </form>
 
       <footer class="modal-footer">
         <span></span>
         <div>
-          <button class="btn btn-secondary" id="cancelNewCardBtn" type="button">Cancelar</button>
-          <button class="btn btn-primary" type="submit" form="newCardForm">Criar tarefa</button>
+          <button class="button button-ghost" id="cancelNewCardBtn" type="button">Cancelar</button>
+          <button class="button button-primary" type="submit" form="newCardForm">Criar</button>
         </div>
       </footer>
     </section>
@@ -249,27 +222,21 @@
 
   <template id="subcardTemplate">
     <article class="subcard">
-      <div class="subcard-top">
-        <div class="subcard-title-wrap">
-          <button class="collapse-button" type="button" aria-label="Abrir ou fechar subcard">▾</button>
-          <input class="subcard-title" type="text" placeholder="Nome do subcard">
-        </div>
-        <button class="icon-button small remove-subcard" type="button" aria-label="Excluir subcard">×</button>
+      <div class="subcard-head">
+        <button class="subcard-toggle" type="button" aria-label="Abrir ou fechar">›</button>
+        <input class="subcard-title" type="text" placeholder="Nome do subcard">
+        <span class="subcard-summary"></span>
+        <button class="subcard-remove" type="button" aria-label="Excluir">×</button>
       </div>
-
       <div class="subcard-body">
         <div class="subcard-grid">
           <label><span>Responsável</span><select class="subcard-assignee"><option>Adriel</option><option>Cesar</option></select></label>
           <label><span>Pontos</span><select class="subcard-points"><option>1</option><option>2</option><option>3</option><option>5</option><option>8</option><option>13</option></select></label>
           <label><span>Status</span><select class="subcard-status"><option value="backlog">Backlog</option><option value="planned">Planejado</option><option value="doing">Em andamento</option><option value="review">Revisão</option><option value="done">Concluído</option></select></label>
         </div>
-        <label class="field compact">
-          <span>Definição</span>
-          <textarea class="subcard-description" rows="2"></textarea>
-        </label>
-
-        <div class="subcard-check-head">
-          <strong>Checklist do subcard</strong>
+        <label class="field compact"><span>Definição</span><textarea class="subcard-description" rows="2"></textarea></label>
+        <div class="subcard-check-title">
+          <strong>Checklist</strong>
           <button class="text-button add-subcard-check" type="button">Adicionar item</button>
         </div>
         <div class="subcard-checklist"></div>
@@ -279,15 +246,15 @@
 
   <template id="checkItemTemplate">
     <article class="check-item">
-      <div class="check-row">
+      <div class="check-main">
         <button class="check-toggle" type="button" aria-label="Marcar item"></button>
         <input class="check-text" type="text">
-        <button class="icon-button small remove-check" type="button" aria-label="Excluir item">×</button>
+        <button class="check-remove" type="button" aria-label="Excluir">×</button>
       </div>
       <div class="comment-list"></div>
-      <div class="comment-form">
-        <input class="comment-input" type="text" placeholder="Adicionar comentário">
-        <button class="text-button comment-send" type="button">Comentar</button>
+      <div class="comment-compose">
+        <input class="comment-input" type="text" placeholder="Comentário">
+        <button class="text-button comment-send" type="button">Enviar</button>
       </div>
     </article>
   </template>

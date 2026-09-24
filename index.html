@@ -33,6 +33,7 @@
     <nav class="view-tabs" aria-label="Visões do projeto">
       <button class="view-tab active" type="button" data-view="kanban">Kanban</button>
       <button class="view-tab" type="button" data-view="structure">Estrutura do produto</button>
+      <button class="view-tab v2-tab" type="button" data-view="v2">ORÇAH V2 <span class="v2-chip">SaaS + Marketplace</span></button>
       <button class="view-tab" type="button" data-view="meetings">Reuniões / Pré-produção <span id="meetingBadge" class="tab-badge">0</span></button>
     </nav>
 
@@ -147,6 +148,78 @@
         </div>
       </section>
       <section id="structureTree" class="structure-tree"></section>
+    </div>
+
+    <div id="v2View" class="app-view" hidden>
+      <section class="v2-hero">
+        <div class="v2-hero-copy">
+          <div class="eyebrow"><span class="live-dot"></span> VISÃO ORÇAH V2</div>
+          <h2>O prestador <em>gerencia e vende.</em><br>O cliente <em>encontra e confia.</em></h2>
+          <p>
+            O ORÇAH V2 mantém o SaaS profissional para quem presta serviço e adiciona uma camada de marketplace local:
+            perfis públicos, avaliações verificadas, busca por região, reputação e monetização por Premium/destaque.
+          </p>
+          <div class="v2-loop">
+            <span>Prestador entra pelo SaaS</span><b>→</b>
+            <span>Cliente recebe orçamento</span><b>→</b>
+            <span>Avalia / cria conta</span><b>→</b>
+            <span>Busca outros profissionais</span><b>→</b>
+            <span>Recomenda ORÇAH</span>
+          </div>
+        </div>
+        <aside class="v2-principles">
+          <span class="section-kicker">REGRAS DA V2</span>
+          <strong>Confiança antes de escala.</strong>
+          <ul>
+            <li>Avaliação deve ter vínculo verificável.</li>
+            <li>Destaque pago deve aparecer como patrocinado.</li>
+            <li>Localização do cliente é opt-in e minimizada.</li>
+            <li>App nativo só entra depois de provar uso recorrente.</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="v2-model-grid">
+        <article>
+          <span class="model-icon">P</span>
+          <div><small>OFERTA</small><strong>Prestadores</strong><p>Empresa, orçamento, CRM, perfil, reputação e Premium.</p></div>
+        </article>
+        <article>
+          <span class="model-icon">C</span>
+          <div><small>DEMANDA</small><strong>Clientes</strong><p>Busca local, avaliação, favoritos, contato e histórico.</p></div>
+        </article>
+        <article>
+          <span class="model-icon">↻</span>
+          <div><small>EFEITO DE REDE</small><strong>Loop</strong><p>Cliente traz prestador; prestador traz clientes; reputação melhora a busca.</p></div>
+        </article>
+        <article>
+          <span class="model-icon">$</span>
+          <div><small>RECEITA</small><strong>Premium + destaque</strong><p>Assinatura e posições patrocinadas claramente identificadas.</p></div>
+        </article>
+      </section>
+
+      <section class="v2-metrics">
+        <div><small>Densidade de oferta</small><strong id="v2MetricSupply">Definir</strong><span>prestadores ativos por categoria/região</span></div>
+        <div><small>Busca → contato</small><strong id="v2MetricContact">Definir</strong><span>principal métrica de utilidade</span></div>
+        <div><small>Avaliações verificadas</small><strong id="v2MetricReviews">Definir</strong><span>confiança e qualidade da rede</span></div>
+        <div><small>Conversão Premium</small><strong id="v2MetricPremium">Definir</strong><span>monetização sem destruir relevância</span></div>
+      </section>
+
+      <section class="v2-roadmap-head">
+        <div>
+          <span class="section-kicker">ROADMAP EXECUTÁVEL</span>
+          <h3>Construir por portões, não por ansiedade.</h3>
+          <p>Os cards abaixo também existem no Kanban. Esta visão mostra apenas a estratégia V2 e suas dependências.</p>
+        </div>
+        <div class="v2-progress-box">
+          <span>Progresso V2</span>
+          <strong id="v2ProgressText">0%</strong>
+          <div class="meter-track"><div class="meter-fill" id="v2ProgressFill"></div></div>
+          <small id="v2ProgressPoints">0 / 0 pts</small>
+        </div>
+      </section>
+
+      <section id="v2Roadmap" class="v2-roadmap"></section>
     </div>
 
     <div id="meetingsView" class="app-view" hidden>
@@ -271,6 +344,23 @@
               <option value="done">Concluído</option>
             </select>
           </label>
+          <label>
+            <span>Fase V2</span>
+            <select id="editV2Phase">
+              <option value="">Não faz parte da V2</option>
+              <option value="foundation">0 · Core estável</option>
+              <option value="identity">1 · Identidade e perfis</option>
+              <option value="trust">2 · Confiança e avaliações</option>
+              <option value="discovery">3 · Busca local</option>
+              <option value="monetization">4 · Monetização</option>
+              <option value="growth">5 · Crescimento</option>
+              <option value="scale">6 · Escala / App</option>
+            </select>
+          </label>
+          <label>
+            <span>Trilha V2</span>
+            <input id="editV2Track" type="text" placeholder="Ex.: Marketplace, Trust, Growth" />
+          </label>
         </div>
 
         <label class="stack-label">
@@ -363,6 +453,23 @@
               <option value="planned" selected>Planejado</option>
               <option value="doing">Em andamento</option>
             </select>
+          </label>
+          <label>
+            <span>Fase V2</span>
+            <select name="v2Phase">
+              <option value="">Não faz parte da V2</option>
+              <option value="foundation">0 · Core estável</option>
+              <option value="identity">1 · Identidade e perfis</option>
+              <option value="trust">2 · Confiança e avaliações</option>
+              <option value="discovery">3 · Busca local</option>
+              <option value="monetization">4 · Monetização</option>
+              <option value="growth">5 · Crescimento</option>
+              <option value="scale">6 · Escala / App</option>
+            </select>
+          </label>
+          <label>
+            <span>Trilha V2</span>
+            <input name="v2Track" placeholder="Ex.: Marketplace" />
           </label>
         </div>
         <label class="stack-label">

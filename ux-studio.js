@@ -2,6 +2,7 @@
   "use strict";
 
   const UX_KEY = "operacao-orcah-ux-studio-v1";
+  const UI_STATE_KEY = "operacao-orcah-ui-state-v1";
   const GITHUB_REPO = "AdrielSchimit/orcah-clone";
   const VERSION_OPTIONS = ["Atual", "V2 Adriel", "V2 César", "Final"];
   const STATUS_OPTIONS = ["Atual", "Em análise", "Proposta", "Em discussão", "Aprovada", "Pronta para implementar", "Implementada"];
@@ -41,6 +42,8 @@
   let state = loadState();
   let studioMode = "free";
   let frameDrag = null;
+  let uxPanMode = false;
+  let uxPanDrag = null;
 
   function save() {
     localStorage.setItem(UX_KEY, JSON.stringify(state));
@@ -93,6 +96,10 @@
 
   function setStudioMode(mode) {
     studioMode = mode;
+    try {
+      const current = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}");
+      localStorage.setItem(UI_STATE_KEY, JSON.stringify({ ...current, studioMode: mode }));
+    } catch {}
     const product = mode === "product";
     $("#freeMindSidebar").hidden = product;
     $("#uxSidebar").hidden = !product;
@@ -109,7 +116,10 @@
       button.classList.toggle("active", button.dataset.studioMode === mode);
     });
     $("#mindmapView").classList.toggle("product-mode", product);
-    if (product) renderAll();
+    if (product) {
+      renderAll();
+      requestAnimationFrame(restoreUxViewport);
+    }
   }
 
   async function latestGithubCommit() {
@@ -282,6 +292,8 @@
   function selectFrame(frameId, blockId = null) {
     state.selectedFrameId = frameId;
     state.selectedBlockId = blockId;
+    save();
+    persistUxViewport();
     renderAll();
   }
 
@@ -369,6 +381,7 @@
   }
 
   function startFrameDrag(event, frameId) {
+    if (uxPanMode) return;
     if (event.button !== 0 || event.target.closest("button")) return;
     const frame = state.frames.find(item => item.id === frameId);
     if (!frame) return;
@@ -429,6 +442,72 @@
     save();
     renderAll();
     return true;
+  }
+
+
+  function persistUxViewport() {
+    const viewport = $("#uxViewport");
+    if (!viewport) return;
+    try {
+      const current = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}");
+      localStorage.setItem(UI_STATE_KEY, JSON.stringify({
+        ...current,
+        uxScrollLeft: viewport.scrollLeft,
+        uxScrollTop: viewport.scrollTop,
+        uxSelectedFrameId: state.selectedFrameId || null,
+        uxSelectedBlockId: state.selectedBlockId || null
+      }));
+    } catch {}
+  }
+
+  function restoreUxViewport() {
+    const viewport = $("#uxViewport");
+    if (!viewport) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}");
+      if (saved.uxSelectedFrameId && state.frames.some(frame => frame.id === saved.uxSelectedFrameId)) {
+        state.selectedFrameId = saved.uxSelectedFrameId;
+        state.selectedBlockId = saved.uxSelectedBlockId || null;
+        renderAll();
+      }
+      viewport.scrollLeft = Number(saved.uxScrollLeft || 0);
+      viewport.scrollTop = Number(saved.uxScrollTop || 0);
+    } catch {}
+  }
+
+  function toggleUxPanMode() {
+    uxPanMode = !uxPanMode;
+    $("#uxPanBtn")?.classList.toggle("active", uxPanMode);
+    $("#uxPanBtn").textContent = uxPanMode ? "Movendo..." : "Mover tela";
+    $("#uxViewport")?.classList.toggle("pan-mode", uxPanMode);
+  }
+
+  function startUxPan(event) {
+    if (!uxPanMode || event.button !== 0 || event.target.closest("button,input,textarea,select")) return;
+    const viewport = $("#uxViewport");
+    uxPanDrag = {
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop
+    };
+    viewport.classList.add("panning");
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function moveUxPan(event) {
+    if (!uxPanDrag) return;
+    const viewport = $("#uxViewport");
+    viewport.scrollLeft = uxPanDrag.left - (event.clientX - uxPanDrag.x);
+    viewport.scrollTop = uxPanDrag.top - (event.clientY - uxPanDrag.y);
+  }
+
+  function endUxPan() {
+    if (!uxPanDrag) return;
+    uxPanDrag = null;
+    $("#uxViewport")?.classList.remove("panning");
+    persistUxViewport();
   }
 
   function toggleFlowMode() {
@@ -970,6 +1049,7 @@
     document.querySelectorAll("[data-ux-component]").forEach(button => {
       button.addEventListener("click", () => addComponent(button.dataset.uxComponent));
     });
+    $("#uxPanBtn")?.addEventListener("click", toggleUxPanMode);
     $("#uxFlowBtn")?.addEventListener("click", toggleFlowMode);
     $("#uxCompareBtn")?.addEventListener("click", openCompare);
     $("#uxFullscreenBtn")?.addEventListener("click", toggleFullscreen);
@@ -977,8 +1057,19 @@
     $("#uxCompareModal")?.addEventListener("click", event => {
       if (event.target === $("#uxCompareModal")) $("#uxCompareModal").hidden = true;
     });
-    window.addEventListener("pointermove", moveFrameDrag);
-    window.addEventListener("pointerup", endFrameDrag);
+    $("#uxViewport")?.addEventListener("pointerdown", startUxPan, true);
+    $("#uxViewport")?.addEventListener("scroll", () => {
+      clearTimeout(window.__orcahUxScrollSave);
+      window.__orcahUxScrollSave = setTimeout(persistUxViewport, 120);
+    });
+    window.addEventListener("pointermove", event => {
+      moveFrameDrag(event);
+      moveUxPan(event);
+    });
+    window.addEventListener("pointerup", () => {
+      endFrameDrag();
+      endUxPan();
+    });
     window.addEventListener("resize", () => { if (studioMode === "product") renderConnectors(); });
 
     $("#uxViewport")?.addEventListener("click", event => {
@@ -1000,7 +1091,12 @@
       }
     });
 
-    setStudioMode("free");
+    let initialStudioMode = "free";
+    try {
+      const saved = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}");
+      initialStudioMode = saved.studioMode || "free";
+    } catch {}
+    setStudioMode(initialStudioMode === "product" ? "product" : "free");
   }
 
   wire();

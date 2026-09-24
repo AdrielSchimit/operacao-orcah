@@ -9,6 +9,23 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <div class="access-gate" id="accessGate">
+    <section class="access-card">
+      <div class="access-brand">O</div>
+      <span class="access-kicker">OPERAÇÃO ORÇAH</span>
+      <h1>Acesso restrito</h1>
+      <p>Digite seu código pessoal para abrir o Kanban e o UX Studio.</p>
+      <form id="accessForm">
+        <label>
+          <span>Código de acesso</span>
+          <input id="accessCode" type="password" autocomplete="current-password" placeholder="ORCAH-••-••••-••" required>
+        </label>
+        <button class="button button-primary" type="submit">Entrar</button>
+        <div class="access-error" id="accessError" hidden>Código inválido.</div>
+      </form>
+    </section>
+  </div>
+
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark">O</div>
@@ -46,6 +63,7 @@
       <div class="top-menu" id="topMenu" hidden>
         <button id="exportBtn" type="button">Exportar quadro</button>
         <button id="importBtn" type="button">Importar quadro</button>
+        <button id="logoutBtn" type="button">Sair / trocar usuário</button>
       </div>
       <input id="importFile" type="file" accept="application/json" hidden>
     </div>
@@ -205,6 +223,7 @@
           <button type="button" id="zoomResetBtn">Centralizar</button>
         </div>
         <div class="ux-toolbar-head" id="uxToolbarHead" hidden>
+          <button type="button" id="uxPanBtn">Mover tela</button>
           <button type="button" id="uxFlowBtn">Conectar telas</button>
           <button type="button" id="uxCompareBtn">Comparar</button>
           <button type="button" id="uxFullscreenBtn">Modo UX</button>
@@ -459,6 +478,7 @@
   </template>
 
   <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+  <script src="./access.js"></script>
   <script src="./app.js"></script>
   <script src="./ux-snapshot.js"></script>
   <script src="./ux-studio.js"></script>

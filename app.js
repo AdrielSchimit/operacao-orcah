@@ -689,6 +689,10 @@
 
     renderSubcardsEditor();
     renderChecklistEditor();
+    const subCount = $("#subcardSummaryCount");
+    const checkCount = $("#checklistSummaryCount");
+    if (subCount) subCount.textContent = workingCard.subcards?.length ? `(${workingCard.subcards.length})` : "";
+    if (checkCount) checkCount.textContent = workingCard.checklist?.length ? `(${workingCard.checklist.length})` : "";
 
     cardModal.hidden = false;
     document.body.style.overflow = "hidden";
@@ -906,6 +910,10 @@
 
   function openNewCardModal() {
     $("#newCardForm").reset();
+    const assignee = $("#newCardForm select[name='assignee']");
+    if (assignee && (window.ORCAH_ACCESS_USER === "Adriel" || window.ORCAH_ACCESS_USER === "Cesar")) {
+      assignee.value = window.ORCAH_ACCESS_USER;
+    }
     newCardModal.hidden = false;
     document.body.style.overflow = "hidden";
     setTimeout(() => $("#newCardForm input[name='title']").focus(), 20);
@@ -923,12 +931,12 @@
     const card = sanitizeCard({
       id: uid(),
       title: form.get("title"),
-      epic: form.get("epic"),
-      assignee: form.get("assignee"),
-      priority: form.get("priority"),
-      points: Number(form.get("points")),
-      status: form.get("status"),
-      description: form.get("description"),
+      epic: String(form.get("epic") || "Geral"),
+      assignee: form.get("assignee") || window.ORCAH_ACCESS_USER || "Adriel",
+      priority: form.get("priority") || "medium",
+      points: Number(form.get("points") || 3),
+      status: form.get("status") || "backlog",
+      description: String(form.get("description") || ""),
       notes: "",
       subcards: [],
       checklist: []
@@ -1351,7 +1359,7 @@
     applyMindTransform();
   }
 
-  function eraseMindAt(clientX, clientY) {
+  function eraseMindAt(clientX, clientY, shouldPersist = true) {
     const point = worldPoint(clientX, clientY);
     let erased = false;
 
@@ -1380,7 +1388,7 @@
     }
 
     if (erased) {
-      persistMind();
+      if (shouldPersist) persistMind();
       renderMind();
     }
     return erased;
@@ -1408,7 +1416,7 @@
     if (event.button !== 0) return;
 
     if (mindTool === "eraser") {
-      eraseMindAt(event.clientX, event.clientY);
+      eraseMindAt(event.clientX, event.clientY, false);
       mindInteraction = { type: "erase" };
       event.preventDefault();
       return;
@@ -1452,7 +1460,7 @@
     }
 
     if (mindInteraction.type === "erase") {
-      eraseMindAt(event.clientX, event.clientY);
+      eraseMindAt(event.clientX, event.clientY, false);
       return;
     }
 

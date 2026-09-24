@@ -702,3 +702,33 @@ button{cursor:pointer}
   .mobile-studio-actions button{flex:1}
   .mind-sidebar,.product-mode .mind-sidebar{width:calc(100vw - 16px)!important}
 }
+
+
+/* UX block direct manipulation */
+.ux-block{
+  touch-action:none;
+}
+.ux-block:not(.hidden-block){cursor:pointer}
+.ux-frame.proposal .ux-block{cursor:grab}
+.ux-frame.proposal .ux-block:active{cursor:grabbing}
+.ux-block.dragging-block{
+  opacity:.45;
+  border-color:#8ec7a8!important;
+  background:#f2faf5!important;
+}
+body.ux-block-dragging{
+  user-select:none;
+  cursor:grabbing!important;
+}
+.ux-frame.current .ux-block.selected{
+  border-color:#b9c0bb;
+  background:#f7f8f7;
+}
+.ux-frame.proposal .ux-block.selected{
+  border-color:#78bd99;
+  box-shadow:0 0 0 2px rgba(31,157,97,.08);
+}
+@media(max-width:760px){
+  .ux-block{min-height:34px}
+  .ux-block-grip{font-size:10px}
+}

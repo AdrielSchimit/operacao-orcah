@@ -960,7 +960,7 @@
           ${(target.comments || []).map(comment=>`<div><strong>${escapeHtml(comment.author)}</strong><p>${escapeHtml(comment.text)}</p></div>`).join("") || "<p class='ux-no-comments'>Nenhum comentário.</p>"}
         </div>
         <div class="ux-comment-compose">
-          <select id="uxCommentAuthor"><option>Adriel</option><option>Cesar</option></select>
+          <select id="uxCommentAuthor"><option ${window.ORCAH_ACCESS_USER === "Adriel" ? "selected" : ""}>Adriel</option><option ${window.ORCAH_ACCESS_USER === "Cesar" ? "selected" : ""}>Cesar</option></select>
           <textarea id="uxCommentText" rows="2" placeholder="Escreva um comentário"></textarea>
           <button class="button button-ghost" id="uxCommentSend" type="button">Comentar</button>
         </div>

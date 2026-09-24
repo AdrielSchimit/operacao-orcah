@@ -539,16 +539,14 @@
 
   function renderCard(card) {
     const element = document.createElement("article");
-    const progress = progressFor(card);
-    const subcardsDone = (card.subcards || []).filter(sub => sub.status === "done").length;
-
     element.className = "task-card";
     element.draggable = true;
     element.dataset.id = card.id;
 
     element.innerHTML = `
-      <div class="card-top">
-        <span class="epic-pill" title="${escapeHTML(card.epic)}">${escapeHTML(card.epic)}</span>
+      <div class="card-line">
+        <span class="priority-pin ${card.priority}" title="${PRIORITIES[card.priority].label}"></span>
+        <h3>${escapeHTML(card.title)}</h3>
         <div class="card-menu-wrap">
           <button class="card-menu-btn" type="button" aria-label="Ações">⋮</button>
           <div class="card-menu" hidden>
@@ -559,28 +557,13 @@
           </div>
         </div>
       </div>
-      <h3>${escapeHTML(card.title)}</h3>
-      <p>${escapeHTML(card.description || "Sem definição de pronto.")}</p>
-      ${(card.subcards || []).length ? `
-        <div class="card-subcards">
-          <span>${card.subcards.length} subcards</span>
-          <span>${subcardsDone}/${card.subcards.length} concluídos</span>
-        </div>
-      ` : ""}
-      <div class="card-progress">
-        <div class="card-progress-row">
-          <span>Progresso</span>
-          <span>${progress.done}/${progress.total}</span>
-        </div>
-        <div class="mini-track"><div class="mini-fill" style="width:${progress.percent}%"></div></div>
+      <div class="card-meta">
+        <span class="card-block" title="${escapeHTML(card.epic)}">${escapeHTML(card.epic)}</span>
+        <span class="card-right">
+          <span class="assignee-text">${escapeHTML(card.assignee)}</span>
+          <span class="points-text">${cardPoints(card)} pts</span>
+        </span>
       </div>
-      <footer class="card-foot">
-        <div class="card-meta">
-          <span class="priority ${card.priority}">${PRIORITIES[card.priority].label}</span>
-          <span class="points">${cardPoints(card)} pts</span>
-        </div>
-        <span class="assignee ${card.assignee}" title="${card.assignee}">${card.assignee.charAt(0)}</span>
-      </footer>
     `;
 
     const menu = element.querySelector(".card-menu");
@@ -622,31 +605,10 @@
   }
 
   function renderStats() {
-    const total = cards.reduce((sum, card) => sum + cardPoints(card), 0);
-    const done = cards.reduce((sum, card) => sum + donePoints(card), 0);
-    const remaining = Math.max(0, total - done);
-    const percent = total ? Math.round(done / total * 100) : 0;
-
-    $("#progressPercent").textContent = `${percent}%`;
-    $("#progressFill").style.width = `${percent}%`;
-    $("#donePoints").textContent = `${done} pts concluídos`;
-    $("#totalPoints").textContent = `${total} pts totais`;
-    $("#statRemaining").textContent = remaining;
-    $("#statDoing").textContent = cards.filter(card => card.status === "doing").length;
-    $("#statCritical").textContent = cards.filter(card => card.priority === "critical" && card.status !== "done").length;
-    $("#statDone").textContent = cards.filter(card => card.status === "done").length;
-
-    const pointsFor = assignee => cards.reduce((sum, card) => {
-      if ((card.subcards || []).length) {
-        return sum + card.subcards
-          .filter(sub => sub.assignee === assignee && sub.status !== "done")
-          .reduce((subSum, sub) => subSum + Number(sub.points || 0), 0);
-      }
-      return sum + (card.assignee === assignee && card.status !== "done" ? Number(card.points || 0) : 0);
-    }, 0);
-
-    $("#statAdriel").textContent = `${pointsFor("Adriel")} pts`;
-    $("#statCesar").textContent = `${pointsFor("Cesar")} pts`;
+    const visibleCount = cards.filter(card => cardMatches(card, getFilters())).length;
+    const totalPoints = cards.reduce((sum, card) => sum + cardPoints(card), 0);
+    const done = cards.filter(card => card.status === "done").length;
+    $("#boardSummary").textContent = `${visibleCount} tarefas · ${totalPoints} pts · ${done} concluídas`;
   }
 
   function moveCard(id, status) {
@@ -788,7 +750,8 @@
     workingCard.subcards.forEach(sub => {
       const fragment = $("#subcardTemplate").content.cloneNode(true);
       const root = fragment.querySelector(".subcard");
-      const collapse = fragment.querySelector(".collapse-button");
+      const collapse = fragment.querySelector(".subcard-toggle");
+      const summary = fragment.querySelector(".subcard-summary");
       const title = fragment.querySelector(".subcard-title");
       const assignee = fragment.querySelector(".subcard-assignee");
       const points = fragment.querySelector(".subcard-points");
@@ -808,7 +771,13 @@
       status.addEventListener("change", () => { sub.status = status.value; });
       description.addEventListener("input", () => { sub.description = description.value; });
 
-      collapse.addEventListener("click", () => root.classList.toggle("collapsed"));
+      const refreshSubcardSummary = () => {
+        summary.textContent = `${sub.points} pts · ${sub.assignee}`;
+      };
+      refreshSubcardSummary();
+      assignee.addEventListener("change", refreshSubcardSummary);
+      points.addEventListener("change", refreshSubcardSummary);
+      collapse.addEventListener("click", () => root.classList.toggle("open"));
 
       fragment.querySelector(".remove-subcard").addEventListener("click", () => {
         workingCard.subcards = workingCard.subcards.filter(item => item.id !== sub.id);
@@ -840,6 +809,7 @@
 
     const subcards = $("#subcardsContainer").querySelectorAll(".subcard");
     const last = subcards[subcards.length - 1];
+    if (last) last.classList.add("open");
     const input = last?.querySelector(".subcard-title");
     if (input) {
       input.focus();
@@ -1013,10 +983,16 @@
 
   function closeMenus() {
     document.querySelectorAll(".card-menu").forEach(menu => { menu.hidden = true; });
+    const topMenu = $("#topMenu");
+    if (topMenu) topMenu.hidden = true;
   }
 
   function wireEvents() {
     $("#newCardBtn").addEventListener("click", openNewCardModal);
+    $("#moreButton").addEventListener("click", event => {
+      event.stopPropagation();
+      $("#topMenu").hidden = !$("#topMenu").hidden;
+    });
     $("#closeNewCardModal").addEventListener("click", closeNewCardModal);
     $("#cancelNewCardBtn").addEventListener("click", closeNewCardModal);
     $("#newCardForm").addEventListener("submit", createCard);
@@ -1055,7 +1031,7 @@
     });
 
     document.addEventListener("click", event => {
-      if (!event.target.closest(".card-menu-wrap")) closeMenus();
+      if (!event.target.closest(".card-menu-wrap") && !event.target.closest("#topMenu") && !event.target.closest("#moreButton")) closeMenus();
     });
 
     [cardModal, newCardModal].forEach(backdrop => {

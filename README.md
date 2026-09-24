@@ -126,3 +126,33 @@ A interface atual pode ser mantida; basta substituir a camada de persistência d
 - `styles.css` — design responsivo.
 - `app.js` — dados, persistência e comportamento.
 - `vercel.json` — configuração mínima para hospedagem estática.
+
+
+## Hierarquia V2
+
+A organização agora segue a lógica discutida para evitar um Kanban plano demais:
+
+```
+Bloco do produto
+└── Subcard
+    └── Checklist
+        └── Comentários
+```
+
+- **Bloco:** uma parte grande do sistema, como WhatsApp, Instagram, clientes, storage ou ramos/moldes.
+- **Subcard:** componente, implementação, tecnologia ou pedaço executável dentro do bloco.
+- **Checklist:** definição objetiva do que precisa ser feito.
+- **Comentários:** decisões e observações dentro do item de checklist.
+- **Pontos:** quando o bloco tem subcards, o peso do bloco é a soma dos pontos dos subcards.
+
+### Visões
+
+- **Kanban:** execução diária.
+- **Estrutura do produto:** mapa hierárquico por frente/bloco/subcard.
+- **Reuniões / Pré-produção:** caixa de entrada para pedidos e ideias antes de virarem roadmap.
+
+A área de pré-produção permite converter um assunto diretamente em card do Kanban.
+
+### Próxima etapa colaborativa
+
+A versão atual continua local-first. Para uso simultâneo por Adriel e Cesar, a próxima evolução é conectar backend/autenticação e sincronização em tempo real. Nessa fase também entram notificações por e-mail para novos assuntos de reunião.

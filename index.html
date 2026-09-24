@@ -30,6 +30,13 @@
   </header>
 
   <main class="app-shell">
+    <nav class="view-tabs" aria-label="Visões do projeto">
+      <button class="view-tab active" type="button" data-view="kanban">Kanban</button>
+      <button class="view-tab" type="button" data-view="structure">Estrutura do produto</button>
+      <button class="view-tab" type="button" data-view="meetings">Reuniões / Pré-produção <span id="meetingBadge" class="tab-badge">0</span></button>
+    </nav>
+
+    <div id="kanbanView" class="app-view active">
     <section class="mission-panel">
       <div class="mission-copy">
         <div class="eyebrow"><span class="live-dot"></span> MISSÃO PRINCIPAL</div>
@@ -124,6 +131,87 @@
     </section>
 
     <section class="board" id="board" aria-label="Kanban ORÇAH"></section>
+    </div>
+
+    <div id="structureView" class="app-view" hidden>
+      <section class="view-hero compact-hero">
+        <div>
+          <div class="eyebrow"><span class="live-dot"></span> MAPA DO PRODUTO</div>
+          <h2>Blocos → subcards → checklist</h2>
+          <p>Cada grande parte do ORÇAH vira um bloco. Dentro dele ficam as implementações menores, definições, responsáveis e pontos.</p>
+        </div>
+        <div class="hierarchy-legend">
+          <span><strong>Bloco</strong> parte do produto</span>
+          <span><strong>Subcard</strong> componente/implementação</span>
+          <span><strong>Checklist</strong> definição de pronto</span>
+        </div>
+      </section>
+      <section id="structureTree" class="structure-tree"></section>
+    </div>
+
+    <div id="meetingsView" class="app-view" hidden>
+      <section class="view-hero compact-hero">
+        <div>
+          <div class="eyebrow"><span class="live-dot"></span> CAIXA DE ENTRADA</div>
+          <h2>Reuniões / Pré-produção</h2>
+          <p>Registre pedidos, dúvidas e ideias antes de decidir se entram no roadmap. Quando fizer sentido, converta em card com um clique.</p>
+        </div>
+        <div class="inbox-note">Nesta versão os registros ficam no navegador. Login compartilhado e alerta por e-mail entram quando conectarmos o backend.</div>
+      </section>
+
+      <section class="meeting-layout">
+        <form id="meetingForm" class="meeting-form">
+          <div class="section-title-row">
+            <div>
+              <span class="section-kicker">NOVO REGISTRO</span>
+              <h3>Adicionar assunto</h3>
+            </div>
+          </div>
+          <label class="stack-label">
+            <span>Cliente / origem</span>
+            <input name="client" placeholder="Ex.: Cliente pintura / reunião interna" required />
+          </label>
+          <label class="stack-label">
+            <span>Assunto</span>
+            <input name="title" placeholder="Ex.: Adicionar campo de metragem por parede" required />
+          </label>
+          <label class="stack-label">
+            <span>Contexto</span>
+            <textarea name="context" rows="5" placeholder="O que foi pedido, por quê, exemplo de uso..."></textarea>
+          </label>
+          <div class="meeting-form-grid">
+            <label>
+              <span>Prioridade inicial</span>
+              <select name="priority">
+                <option value="low">Baixa</option>
+                <option value="medium" selected>Média</option>
+                <option value="high">Alta</option>
+                <option value="critical">Crítica</option>
+              </select>
+            </label>
+            <label>
+              <span>Responsável pela triagem</span>
+              <select name="owner">
+                <option>Adriel</option>
+                <option>Cesar</option>
+              </select>
+            </label>
+          </div>
+          <button class="btn btn-primary full-btn" type="submit">Adicionar à pré-produção</button>
+        </form>
+
+        <section class="meeting-inbox">
+          <div class="section-title-row inbox-title">
+            <div>
+              <span class="section-kicker">PENDÊNCIAS</span>
+              <h3>Assuntos para decidir</h3>
+            </div>
+            <span id="meetingCount" class="column-count">0</span>
+          </div>
+          <div id="meetingList" class="meeting-list"></div>
+        </section>
+      </section>
+    </div>
   </main>
 
   <div class="modal-backdrop" id="cardModal" hidden>
@@ -190,11 +278,23 @@
           <textarea id="editDescription" rows="4"></textarea>
         </label>
 
+        <section class="subcards-section">
+          <div class="section-title-row">
+            <div>
+              <span class="section-kicker">ESTRUTURA INTERNA</span>
+              <h3>Subcards</h3>
+              <p class="section-help">Quebre este bloco em componentes, implementações ou tecnologias menores. Cada subcard pode ter seus próprios pontos e checklist.</p>
+            </div>
+            <button class="btn btn-ghost compact" id="addSubcardBtn" type="button">+ Subcard</button>
+          </div>
+          <div id="subcardsContainer" class="subcards-container"></div>
+        </section>
+
         <section class="checklist-section">
           <div class="section-title-row">
             <div>
-              <span class="section-kicker">EXECUÇÃO</span>
-              <h3>Checklist</h3>
+              <span class="section-kicker">CHECKLIST DO BLOCO</span>
+              <h3>Checklist geral</h3>
             </div>
             <button class="btn btn-ghost compact" id="addChecklistBtn" type="button">+ Item</button>
           </div>
@@ -282,6 +382,57 @@
   </div>
 
   <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <template id="subcardTemplate">
+    <details class="subcard-editor">
+      <summary>
+        <div class="subcard-summary-main">
+          <span class="subcard-state-dot"></span>
+          <strong class="subcard-summary-title">Novo subcard</strong>
+        </div>
+        <div class="subcard-summary-meta">
+          <span class="subcard-summary-points">3 pts</span>
+          <span class="subcard-summary-assignee">A</span>
+        </div>
+      </summary>
+      <div class="subcard-body">
+        <div class="subcard-fields">
+          <label>
+            <span>Nome</span>
+            <input class="subcard-title" type="text" />
+          </label>
+          <label>
+            <span>Responsável</span>
+            <select class="subcard-assignee"><option>Adriel</option><option>Cesar</option></select>
+          </label>
+          <label>
+            <span>Pontos</span>
+            <select class="subcard-points"><option>1</option><option>2</option><option>3</option><option>5</option><option>8</option><option>13</option></select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select class="subcard-status">
+              <option value="backlog">Backlog</option>
+              <option value="planned">Planejado</option>
+              <option value="doing">Em andamento</option>
+              <option value="review">Revisão</option>
+              <option value="done">Concluído</option>
+            </select>
+          </label>
+        </div>
+        <label class="stack-label">
+          <span>Pré-definição / objetivo</span>
+          <textarea class="subcard-description" rows="3" placeholder="O que precisa existir para este subcard ser considerado pronto?"></textarea>
+        </label>
+        <div class="subcard-check-head">
+          <span>Checklist do subcard</span>
+          <button class="btn btn-ghost compact add-subcard-check" type="button">+ Item</button>
+        </div>
+        <div class="subcard-checklist"></div>
+        <button class="btn btn-danger-ghost compact remove-subcard" type="button">Excluir subcard</button>
+      </div>
+    </details>
+  </template>
 
   <template id="checklistItemTemplate">
     <article class="check-item">

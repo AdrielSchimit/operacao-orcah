@@ -741,3 +741,30 @@ body.ux-block-dragging{
 @keyframes syncPulse{from{opacity:.35}to{opacity:1}}
 .mind-viewport.tool-eraser{cursor:cell}
 @media(max-width:760px){.sync-badge span{display:none}}
+
+
+/* Lean task editor */
+.compact-details{
+  margin-top:10px;border:1px solid var(--line);border-radius:8px;background:#fafbfa;overflow:hidden
+}
+.compact-details>summary{
+  display:flex;align-items:center;gap:5px;padding:9px 10px;cursor:pointer;list-style:none;
+  color:#5e675f;font-size:9px;font-weight:700
+}
+.compact-details>summary::-webkit-details-marker{display:none}
+.compact-details>summary::after{content:"+";margin-left:auto;color:#9aa19c;font-size:13px;font-weight:400}
+.compact-details[open]>summary::after{content:"−"}
+.compact-details[open]>summary{border-bottom:1px solid var(--line);background:#fff}
+.compact-details>.form-grid,.compact-details>.field{margin:9px}
+.compact-primary-grid{grid-template-columns:minmax(0,2fr) minmax(120px,.65fr) minmax(120px,.65fr)}
+.compact-new-task .compact-primary-grid{grid-template-columns:minmax(0,2fr) minmax(140px,.7fr)}
+.compact-extra-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.compact-new-task .compact-extra-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.task-detail-group{padding:0!important}
+.task-detail-group .compact-section-title{padding:8px 10px 0;align-items:center}
+.task-detail-group .compact-section-title p{margin:0}
+.task-detail-group .subcards,.task-detail-group .checklist{margin:8px 10px 10px}
+@media(max-width:620px){
+  .compact-primary-grid,.compact-new-task .compact-primary-grid,.compact-extra-grid,.compact-new-task .compact-extra-grid{grid-template-columns:1fr}
+  .compact-primary-grid .wide{grid-column:auto}
+}

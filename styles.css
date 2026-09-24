@@ -59,17 +59,17 @@ button{cursor:pointer}
   display:grid;grid-template-columns:repeat(5,minmax(250px,1fr));gap:9px;align-items:start;
   overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity
 }
-.column{min-height:calc(100vh - 150px);background:#f0f2f1;border-radius:10px;scroll-snap-align:start}
+.column{min-height:calc(100vh - 150px);background:transparent;border-radius:10px;scroll-snap-align:start}
 .column-header{
-  position:sticky;top:59px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:10px 10px 8px;background:#f0f2f1;border-radius:10px 10px 0 0
+  position:static;top:auto;z-index:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:0 4px 10px;background:transparent;border-radius:0;border:0
 }
 .column-title-wrap{display:flex;align-items:center;gap:7px}
 .column-dot{width:7px;height:7px;border-radius:50%}
-.column-title{font-size:10px;font-weight:700}
-.column-count{min-width:20px;padding:2px 5px;border-radius:999px;background:#fff;color:var(--muted);font-size:8px;text-align:center}
-.column-points{color:var(--muted2);font-size:8px}
-.column-list{min-height:calc(100vh - 195px);padding:0 7px 8px}
+.column-title{font-size:11px;font-weight:700;color:#5f6761}
+.column-count{min-width:auto;padding:0;background:transparent;border:0;color:#9aa19c;font-size:8px;text-align:center}
+.column-points{color:#9aa19c;font-size:8px}
+.column-list{min-height:calc(100vh - 195px);padding:0 0 8px}
 .column-list.drag-over{background:#e9f5ee;border-radius:8px}
 .empty-column{padding:18px 8px;color:var(--muted2);font-size:9px;text-align:center;border:1px dashed #d9ddda;border-radius:8px;background:rgba(255,255,255,.55)}
 .task-card{
@@ -170,7 +170,7 @@ button{cursor:pointer}
   .board{grid-template-columns:repeat(5,82vw)}
   .column{min-height:calc(100vh - 175px)}
   .column-list{min-height:calc(100vh - 220px)}
-  .column-header{top:103px}
+  .column-header{top:auto}
   .form-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:480px){

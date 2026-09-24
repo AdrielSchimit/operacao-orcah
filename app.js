@@ -1537,6 +1537,31 @@
     });
   }
 
+  window.ORCAH_KANBAN_API = {
+    createTask(payload = {}) {
+      const card = sanitizeCard({
+        id: uid(),
+        title: payload.title || "Tarefa UX",
+        epic: payload.epic || "UX Studio",
+        assignee: payload.assignee || "Adriel",
+        priority: payload.priority || "medium",
+        points: Number(payload.points || 3),
+        status: payload.status || "planned",
+        description: payload.description || "",
+        notes: payload.notes || "",
+        subcards: Array.isArray(payload.subcards) ? payload.subcards : [],
+        checklist: Array.isArray(payload.checklist) ? payload.checklist : []
+      });
+      cards.push(card);
+      persist();
+      renderBoard();
+      return card.id;
+    },
+    getCards() {
+      return JSON.parse(JSON.stringify(cards));
+    }
+  };
+
   wireEvents();
   renderBoard();
   renderMind();

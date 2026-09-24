@@ -1476,7 +1476,22 @@
     if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = () => {
-      addMindElement("image", { w:320, h:220, text:file.name, src:String(reader.result) });
+      const image = new Image();
+      image.onload = () => {
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const src = canvas.toDataURL("image/jpeg", 0.78);
+        const ratio = canvas.width / canvas.height || 1.45;
+        const w = 340;
+        const h = Math.max(140, Math.round(w / ratio));
+        addMindElement("image", { w, h, text:file.name, src });
+      };
+      image.src = String(reader.result);
     };
     reader.readAsDataURL(file);
   }

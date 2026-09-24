@@ -1,690 +1,410 @@
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "operacao-orcah-board-v1";
-  const MEETING_KEY = "operacao-orcah-meetings-v1";
+  const STORAGE_KEY = "operacao-orcah-kanban-v3";
+  const LEGACY_KEYS = ["operacao-orcah-board-v1"];
 
   const COLUMNS = [
-    { key: "backlog", title: "Backlog", color: "#778b80" },
-    { key: "planned", title: "Planejado", color: "#62a5ff" },
-    { key: "doing", title: "Em andamento", color: "#ffad42" },
-    { key: "review", title: "Revisão", color: "#aa86ff" },
-    { key: "done", title: "Concluído", color: "#35e07e" }
+    { key: "backlog", title: "Backlog", color: "#95a199" },
+    { key: "planned", title: "Planejado", color: "#4a7bd8" },
+    { key: "doing", title: "Em andamento", color: "#d38a22" },
+    { key: "review", title: "Revisão", color: "#7d63d2" },
+    { key: "done", title: "Concluído", color: "#1fa463" }
   ];
 
   const PRIORITIES = {
-    critical: { label: "Crítica", short: "CRÍTICA" },
-    high: { label: "Alta", short: "ALTA" },
-    medium: { label: "Média", short: "MÉDIA" },
-    low: { label: "Baixa", short: "BAIXA" }
+    critical: { label: "Crítica" },
+    high: { label: "Alta" },
+    medium: { label: "Média" },
+    low: { label: "Baixa" }
   };
 
-  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const $ = selector => document.querySelector(selector);
+  const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-  const checklist = (...items) =>
-    items.map(text => ({ id: uid(), text, done: false, comments: [] }));
+  const makeCheck = text => ({ id: uid(), text, done: false, comments: [] });
+  const makeChecks = (...items) => items.map(makeCheck);
 
-  const makeSubcard = (title, assignee, points, description, items = [], status = "planned") => ({
+  const makeSubcard = (title, assignee, points, description, status = "planned", checks = []) => ({
     id: uid(),
     title,
     assignee,
     points,
     status,
     description,
-    checklist: checklist(...items)
+    checklist: checks.map(makeCheck)
   });
 
-  function defaultSubcardsFor(card) {
-    const presets = {
-      "Storage externo para logo e fotos": [
-        makeSubcard("Adapter de storage", "Cesar", 2, "Criar uma camada única para upload, troca e remoção sem acoplar o app ao provedor.", ["Escolher interface", "Implementar provider Vercel Blob", "Tratar erros"]),
-        makeSubcard("Logo da empresa", "Cesar", 2, "Migrar upload e substituição de logo para storage persistente.", ["Upload", "Troca", "Remoção"]),
-        makeSubcard("Fotos do orçamento", "Cesar", 3, "Persistir fotos e garantir leitura na página pública/PDF.", ["Upload múltiplo", "URLs persistentes", "Validar página pública"])
-      ],
-      "WhatsApp: redesenhar experiência de envio": [
-        makeSubcard("Mensagens por estado", "Adriel", 3, "Definir texto e contexto para orçamento novo, alteração, aprovado, recusado e follow-up.", ["Mapear estados", "Escrever mensagens", "Revisar tom"]),
-        makeSubcard("CTA e abertura do WhatsApp", "Adriel", 3, "Unificar o botão principal e garantir abertura correta em mobile e desktop.", ["CTA padrão", "Mobile", "Desktop"]),
-        makeSubcard("Fallback e observabilidade", "Adriel", 2, "Quando o WhatsApp não puder abrir, oferecer cópia de mensagem/link e registrar falhas.", ["Copiar mensagem", "Copiar link", "Mensagem de erro"])
-      ],
-      "Instagram: definir função real no produto": [
-        makeSubcard("Job-to-be-done do Instagram", "Adriel", 2, "Fechar se o Instagram servirá prioritariamente para aquisição, prova social, compartilhamento ou combinação desses usos.", ["Auditar estado atual", "Escolher objetivo principal"]),
-        makeSubcard("Preview compartilhável", "Adriel", 3, "Criar card/preview bonito do orçamento ou da empresa para compartilhamento.", ["Layout", "Dados dinâmicos", "Mobile"]),
-        makeSubcard("Tracking de aquisição", "Adriel", 3, "Medir cliques e origem quando o Instagram gerar tráfego ou pedidos.", ["Definir eventos", "Registrar origem", "Exibir métrica"])
-      ],
-      "Lista de orçamentos com filtros": [
-        makeSubcard("Tabela/lista operacional", "Adriel", 2, "Definir visual compacto com cliente, status, valor e última atualização.", ["Campos essenciais", "Responsivo"]),
-        makeSubcard("Busca, filtros e ordenação", "Adriel", 3, "Encontrar orçamento por cliente, status, período e valor.", ["Busca", "Status", "Período", "Ordenação"])
-      ],
-      "Cliente clicável com histórico e edição": [
-        makeSubcard("Perfil do cliente", "Adriel", 2, "Tela única com dados e ações principais.", ["Abrir detalhe", "Exibir dados"]),
-        makeSubcard("Edição", "Adriel", 2, "Editar dados sem duplicar cliente.", ["Salvar", "Validar telefone/e-mail"]),
-        makeSubcard("Histórico e novo orçamento", "Adriel", 4, "Listar orçamentos do cliente e iniciar um novo já preenchido.", ["Histórico", "Abrir orçamento", "Criar orçamento"])
-      ]
-    };
-    return presets[card.title] ? presets[card.title].map(item => ({ ...item })) : [];
-  }
-
-  function makeRamosCard() {
-    return {
-      id: uid(),
-      title: "Estruturar ramos e moldes profissionais",
-      epic: "Produto / Ramos e Moldes",
-      assignee: "Adriel",
-      priority: "medium",
-      points: 13,
-      status: "backlog",
-      description: "Organizar todos os ramos existentes como estrutura de produto, com definição clara do que cada molde pede, como aparece no orçamento e como será testado.",
-      notes: "A ideia não é jogar dezenas de ramos como cards soltos no Kanban. Este bloco guarda a árvore e as auditorias por família/molde.",
-      hierarchySeeded: true,
-      subcards: [
-        makeSubcard("Inventário de ramos", "Adriel", 3, "Catalogar os ramos existentes e identificar duplicidades ou nomes ruins.", ["Exportar catálogo atual", "Agrupar por família", "Marcar duplicidades"]),
-        makeSubcard("Vínculo ramo → molde", "Adriel", 3, "Garantir que cada ramo usa o molde correto e os campos esperados.", ["Mapear vínculos", "Validar exceções", "Corrigir inconsistências"]),
-        makeSubcard("Campos e regras de cada molde", "Adriel", 3, "Documentar quais campos aparecem e quais regras mudam por tipo profissional.", ["Campos obrigatórios", "Unidades", "Regras específicas"]),
-        makeSubcard("Preview público por molde", "Adriel", 2, "Conferir como cada família aparece para o cliente final.", ["Desktop", "Mobile", "PDF"]),
-        makeSubcard("Regressão dos moldes", "Cesar", 2, "Criar uma matriz mínima de testes para impedir quebra de ramo/molde.", ["Casos principais", "Seed de teste", "Executar no CI"])
-      ],
-      checklist: checklist("Fechar inventário", "Fechar matriz ramo → molde", "Definir cobertura mínima de testes")
-    };
-  }
-
-  function migrateCards(list) {
-    const migrated = list.map(card => {
-      const next = { ...card };
-      next.checklist = Array.isArray(next.checklist) ? next.checklist : [];
-      next.subcards = Array.isArray(next.subcards) ? next.subcards : [];
-
-      if (!next.hierarchySeeded) {
-        const defaults = defaultSubcardsFor(next);
-        if (defaults.length && !next.subcards.length) next.subcards = defaults;
-        next.hierarchySeeded = true;
+  function seedCards() {
+    return [
+      {
+        id: uid(),
+        title: "Subir MySQL de produção e configurar DATABASE_URL",
+        epic: "Produção / Banco",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 5,
+        status: "doing",
+        description: "Banco de produção funcional, conectado à Vercel e separado dos deploys de preview.",
+        notes: "Bloqueio direto de produção.",
+        subcards: [
+          makeSubcard("Criar banco de produção", "Cesar", 2, "Instância MySQL exclusiva de produção.", "doing", ["Criar instância", "Validar acesso"]),
+          makeSubcard("Configurar Vercel", "Cesar", 2, "Cadastrar DATABASE_URL em Production.", "planned", ["Adicionar variável", "Redeploy"]),
+          makeSubcard("Separar Preview", "Cesar", 1, "Evitar que preview use o banco real.", "planned", ["Criar banco de preview", "Configurar ambiente"])
+        ],
+        checklist: makeChecks("Validar login em produção", "Validar cadastro em produção")
+      },
+      {
+        id: uid(),
+        title: "Aplicar migrations e seed em produção",
+        epic: "Produção / Banco",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 3,
+        status: "planned",
+        description: "Produção precisa iniciar com todas as tabelas e dados iniciais obrigatórios.",
+        notes: "",
+        subcards: [],
+        checklist: makeChecks("Rodar prisma migrate deploy", "Rodar prisma db seed", "Validar estados, ramos e moldes")
+      },
+      {
+        id: uid(),
+        title: "Storage externo para logo e fotos",
+        epic: "Infra / Storage",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 7,
+        status: "planned",
+        description: "Parar de gravar arquivos no disco efêmero da Vercel e persistir tudo em storage externo.",
+        notes: "Vercel Blob é uma boa opção inicial.",
+        subcards: [
+          makeSubcard("Adapter de storage", "Cesar", 2, "Criar camada única para upload e remoção.", "planned", ["Interface de storage", "Tratamento de erro"]),
+          makeSubcard("Logo da empresa", "Cesar", 2, "Migrar upload, troca e remoção da logo.", "planned", ["Upload", "Troca", "Remoção"]),
+          makeSubcard("Fotos de orçamento", "Cesar", 3, "Persistir fotos e garantir leitura pública.", "planned", ["Upload múltiplo", "URL persistente", "Validar página pública"])
+        ],
+        checklist: makeChecks("Validar upload em produção")
+      },
+      {
+        id: uid(),
+        title: "Destravar ciclo de pedido de alteração",
+        epic: "Orçamentos",
+        assignee: "Adriel",
+        priority: "critical",
+        points: 5,
+        status: "planned",
+        description: "Depois que o cliente pede alteração e o prestador edita, o orçamento precisa voltar a ser aprovável.",
+        notes: "",
+        subcards: [
+          makeSubcard("Estados do orçamento", "Adriel", 2, "Fechar fluxo completo de estados.", "planned", ["Mapear estados", "Definir transições"]),
+          makeSubcard("Reenvio após edição", "Adriel", 2, "Cliente recebe nova versão e pode aprovar novamente.", "planned", ["Liberar nova aprovação", "Atualizar visual público"]),
+          makeSubcard("Histórico de versões", "Adriel", 1, "Registrar alterações importantes.", "backlog", ["Definir histórico mínimo"])
+        ],
+        checklist: makeChecks("Testar dois ciclos consecutivos de alteração")
+      },
+      {
+        id: uid(),
+        title: "Blindar contas administrativas",
+        epic: "Auth / Segurança",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 5,
+        status: "planned",
+        description: "Remover dependência frágil de contas privilegiadas fixas e impedir apropriação de e-mails administrativos.",
+        notes: "",
+        subcards: [],
+        checklist: makeChecks("Mapear regra atual", "Definir bootstrap seguro", "Revisar permissões", "Documentar criação de admin")
+      },
+      {
+        id: uid(),
+        title: "Fechar cobrança ORÇAH no Asaas",
+        epic: "Asaas / Assinatura",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 8,
+        status: "backlog",
+        description: "Usuário com teste vencido precisa conseguir pagar e voltar ao produto sem ficar preso.",
+        notes: "Sandbox primeiro, produção depois.",
+        subcards: [
+          makeSubcard("Sandbox", "Cesar", 3, "Cobrança completa em ambiente de teste.", "backlog", ["Criar cobrança", "Validar retorno"]),
+          makeSubcard("Webhook", "Cesar", 2, "Atualizar assinatura por evento.", "backlog", ["Criar endpoint", "Validar assinatura"]),
+          makeSubcard("Produção", "Cesar", 3, "Chaves reais e fluxo de desbloqueio.", "backlog", ["Configurar chave", "Testar pagamento", "Testar desbloqueio"])
+        ],
+        checklist: []
+      },
+      {
+        id: uid(),
+        title: "Recuperação de senha e limite de tentativas",
+        epic: "Auth / Segurança",
+        assignee: "Cesar",
+        priority: "high",
+        points: 8,
+        status: "backlog",
+        description: "Adicionar recuperação segura de senha e proteção contra força bruta.",
+        notes: "",
+        subcards: [],
+        checklist: makeChecks("Escolher e-mail transacional", "Criar token com expiração", "Adicionar rate limit", "Testar abuso")
+      },
+      {
+        id: uid(),
+        title: "WhatsApp: redesenhar experiência de envio",
+        epic: "WhatsApp",
+        assignee: "Adriel",
+        priority: "high",
+        points: 8,
+        status: "planned",
+        description: "Deixar o WhatsApp com contexto certo, mensagem boa, estados claros e envio rápido.",
+        notes: "",
+        subcards: [
+          makeSubcard("Mensagens por estado", "Adriel", 3, "Textos para orçamento novo, alteração, aprovação e follow-up.", "planned", ["Mapear estados", "Escrever mensagens", "Revisar tom"]),
+          makeSubcard("CTA de envio", "Adriel", 3, "Ação consistente em mobile e desktop.", "planned", ["Mobile", "Desktop", "Número inválido"]),
+          makeSubcard("Fallback", "Adriel", 2, "Copiar mensagem e link quando o WhatsApp não abrir.", "planned", ["Copiar mensagem", "Copiar link"])
+        ],
+        checklist: makeChecks("Testar fluxo cliente novo até WhatsApp")
+      },
+      {
+        id: uid(),
+        title: "Instagram: definir função real no produto",
+        epic: "Instagram",
+        assignee: "Adriel",
+        priority: "high",
+        points: 8,
+        status: "backlog",
+        description: "Definir se Instagram será aquisição, prova social, compartilhamento ou combinação desses usos.",
+        notes: "",
+        subcards: [
+          makeSubcard("Objetivo principal", "Adriel", 2, "Fechar job-to-be-done do Instagram.", "backlog", ["Auditar estado atual", "Escolher função"]),
+          makeSubcard("Preview compartilhável", "Adriel", 3, "Criar card visual do orçamento ou empresa.", "backlog", ["Layout", "Dados dinâmicos", "Mobile"]),
+          makeSubcard("Tracking", "Adriel", 3, "Medir origem e uso.", "backlog", ["Eventos", "Origem", "Métrica"])
+        ],
+        checklist: []
+      },
+      {
+        id: uid(),
+        title: "Lista de orçamentos com filtros",
+        epic: "CRM / Orçamentos",
+        assignee: "Adriel",
+        priority: "high",
+        points: 5,
+        status: "planned",
+        description: "Localizar orçamento por cliente, status, período e valor sem depender do dashboard.",
+        notes: "",
+        subcards: [
+          makeSubcard("Lista operacional", "Adriel", 2, "Cliente, status, valor e última atualização.", "planned", ["Campos essenciais", "Responsivo"]),
+          makeSubcard("Filtros e busca", "Adriel", 3, "Busca, status, período e ordenação.", "planned", ["Busca", "Status", "Período", "Ordenação"])
+        ],
+        checklist: []
+      },
+      {
+        id: uid(),
+        title: "Cliente clicável com histórico e edição",
+        epic: "CRM / Clientes",
+        assignee: "Adriel",
+        priority: "high",
+        points: 8,
+        status: "planned",
+        description: "Transformar cliente em entidade útil: editar cadastro, ver histórico e criar orçamento em contexto.",
+        notes: "",
+        subcards: [
+          makeSubcard("Perfil do cliente", "Adriel", 2, "Tela única com dados e ações.", "planned", ["Abrir detalhe", "Exibir dados"]),
+          makeSubcard("Edição", "Adriel", 2, "Editar sem duplicar cliente.", "planned", ["Salvar", "Validar dados"]),
+          makeSubcard("Histórico", "Adriel", 4, "Orçamentos anteriores e criação contextual.", "planned", ["Listar histórico", "Abrir orçamento", "Criar orçamento"])
+        ],
+        checklist: []
+      },
+      {
+        id: uid(),
+        title: "Salvar e enviar em um passo",
+        epic: "Orçamentos / UX",
+        assignee: "Adriel",
+        priority: "high",
+        points: 3,
+        status: "backlog",
+        description: "Salvar o orçamento e abrir o envio imediatamente, mantendo rascunho como alternativa.",
+        notes: "",
+        subcards: [],
+        checklist: makeChecks("Definir CTA principal", "Garantir persistência", "Abrir WhatsApp", "Tratar erro sem perder dados")
+      },
+      {
+        id: uid(),
+        title: "Criar orçamento a partir de pedido",
+        epic: "Leads / Pedidos",
+        assignee: "Adriel",
+        priority: "high",
+        points: 3,
+        status: "backlog",
+        description: "Pedido recebido pela página da empresa deve virar orçamento sem redigitar cliente e contexto.",
+        notes: "",
+        subcards: [],
+        checklist: makeChecks("Adicionar CTA", "Pré-preencher cliente", "Pré-preencher contexto", "Marcar pedido convertido")
+      },
+      {
+        id: uid(),
+        title: "Testes automáticos das regras de dinheiro",
+        epic: "Qualidade / CI",
+        assignee: "Cesar",
+        priority: "high",
+        points: 5,
+        status: "planned",
+        description: "Cobrir subtotal, desconto, quantidade decimal, total e arredondamento no CI.",
+        notes: "",
+        subcards: [],
+        checklist: makeChecks("Casos com decimais", "Casos com desconto", "Arredondamento", "Rodar no CI")
+      },
+      {
+        id: uid(),
+        title: "Teste E2E completo em produção",
+        epic: "Qualidade / Release",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 5,
+        status: "backlog",
+        description: "Validar cadastro, onboarding, cliente, orçamento, envio, alteração, aprovação e PDF.",
+        notes: "Executar depois dos bloqueios críticos.",
+        subcards: [],
+        checklist: makeChecks("Cadastro e onboarding", "Criar cliente", "Criar orçamento", "Abrir página pública", "Alterar e reenviar", "Aprovar", "Gerar PDF")
+      },
+      {
+        id: uid(),
+        title: "Estruturar ramos e moldes profissionais",
+        epic: "Produto / Ramos e Moldes",
+        assignee: "Adriel",
+        priority: "medium",
+        points: 13,
+        status: "backlog",
+        description: "Organizar os ramos por família e garantir que cada molde tenha campos, regras, preview e cobertura claros.",
+        notes: "Evitar dezenas de cards soltos. Este bloco concentra a estrutura.",
+        subcards: [
+          makeSubcard("Inventário de ramos", "Adriel", 3, "Catalogar ramos e duplicidades.", "backlog", ["Exportar catálogo", "Agrupar famílias", "Marcar duplicidades"]),
+          makeSubcard("Ramo para molde", "Adriel", 3, "Garantir vínculo correto.", "backlog", ["Mapear vínculos", "Validar exceções"]),
+          makeSubcard("Campos e regras", "Adriel", 3, "Documentar campos e unidades.", "backlog", ["Campos obrigatórios", "Unidades", "Regras específicas"]),
+          makeSubcard("Preview", "Adriel", 2, "Conferir cliente final.", "backlog", ["Desktop", "Mobile", "PDF"]),
+          makeSubcard("Regressão", "Cesar", 2, "Matriz mínima de testes.", "backlog", ["Casos principais", "Seed de teste", "CI"])
+        ],
+        checklist: []
+      },
+      {
+        id: uid(),
+        title: "Corrigir redirecionamento pós-login",
+        epic: "Produção / Login",
+        assignee: "Cesar",
+        priority: "critical",
+        points: 3,
+        status: "done",
+        description: "Manter páginas das empresas em /empresa/<slug> e cookie no mesmo domínio.",
+        notes: "Concluído.",
+        subcards: [],
+        checklist: [
+          { id: uid(), text: "Remover subdomínio inexistente", done: true, comments: [] },
+          { id: uid(), text: "Ajustar cookie", done: true, comments: [] }
+        ]
+      },
+      {
+        id: uid(),
+        title: "Reestruturar PDF do orçamento",
+        epic: "PDF",
+        assignee: "Adriel",
+        priority: "high",
+        points: 5,
+        status: "done",
+        description: "Totais, observações, cabeçalho, logo e formatação corrigidos.",
+        notes: "Concluído.",
+        subcards: [],
+        checklist: [
+          { id: uid(), text: "Corrigir layout", done: true, comments: [] },
+          { id: uid(), text: "Logo do prestador", done: true, comments: [] },
+          { id: uid(), text: "Formato brasileiro", done: true, comments: [] }
+        ]
+      },
+      {
+        id: uid(),
+        title: "Melhorar página pública e aprovação",
+        epic: "Página pública",
+        assignee: "Adriel",
+        priority: "high",
+        points: 3,
+        status: "done",
+        description: "Confirmação antes de aprovar, contato em todos os estados e ajuste mobile.",
+        notes: "Concluído.",
+        subcards: [],
+        checklist: [
+          { id: uid(), text: "Confirmação", done: true, comments: [] },
+          { id: uid(), text: "Contato", done: true, comments: [] }
+        ]
       }
-
-      next.subcards = next.subcards.map(sub => ({
-        id: sub.id || uid(),
-        title: sub.title || "Subcard",
-        assignee: sub.assignee || next.assignee || "Adriel",
-        points: Number(sub.points || 3),
-        status: sub.status || "planned",
-        description: sub.description || "",
-        checklist: (sub.checklist || []).map(item => ({
-          id: item.id || uid(),
-          text: item.text || "",
-          done: Boolean(item.done),
-          comments: Array.isArray(item.comments) ? item.comments : []
-        }))
-      }));
-      return next;
-    });
-
-    if (!migrated.some(card => card.title === "Estruturar ramos e moldes profissionais")) {
-      migrated.push(makeRamosCard());
-    }
-    return migrated;
+    ];
   }
 
-  const seedCards = () => [
-    {
-      id: uid(),
-      title: "Subir MySQL de produção e ligar DATABASE_URL",
-      epic: "Produção / Banco",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 5,
-      status: "doing",
-      description: "Banco de produção funcional, conectado à Vercel e isolado dos deploys de preview.",
-      notes: "Bloqueio atual: login/cadastro podem retornar 500 enquanto a produção estiver sem banco funcional.",
-      checklist: checklist(
-        "Criar banco MySQL de produção",
-        "Configurar DATABASE_URL em Production",
-        "Separar banco de Preview do banco de Production",
-        "Validar conexão a partir da Vercel"
-      )
-    },
-    {
-      id: uid(),
-      title: "Aplicar migrations e seed em produção",
-      epic: "Produção / Banco",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 3,
-      status: "planned",
-      description: "Produção deve iniciar com todas as tabelas, estados, ramos e dados-base obrigatórios.",
-      notes: "",
-      checklist: checklist(
-        "Rodar prisma migrate deploy",
-        "Rodar prisma db seed",
-        "Validar estados no onboarding",
-        "Validar os ~120 ramos e 9 moldes"
-      )
-    },
-    {
-      id: uid(),
-      title: "Storage externo para logo e fotos",
-      epic: "Infra / Storage",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 5,
-      status: "planned",
-      description: "Remover gravação em disco efêmero/read-only da Vercel e persistir uploads em storage externo.",
-      notes: "Preferência inicial: Vercel Blob. Manter uma camada de storage para não acoplar a aplicação ao provedor.",
-      checklist: checklist(
-        "Criar storage e credenciais",
-        "Criar adapter de upload",
-        "Migrar upload de logo",
-        "Migrar fotos dos orçamentos/empresa",
-        "Validar exclusão e troca de arquivo"
-      )
-    },
-    {
-      id: uid(),
-      title: "Destravar ciclo de pedido de alteração",
-      epic: "Orçamentos",
-      assignee: "Adriel",
-      priority: "critical",
-      points: 5,
-      status: "planned",
-      description: "Depois que o cliente pede alteração e o prestador edita, o orçamento precisa voltar ao estado aprovável e notificável.",
-      notes: "Regra de produto sugerida: alteração solicitada → edição pelo prestador → nova versão enviada → cliente pode aprovar, recusar ou pedir nova alteração.",
-      checklist: checklist(
-        "Mapear estados atuais do orçamento",
-        "Definir transição após edição",
-        "Liberar nova aprovação pública",
-        "Exibir histórico/versão ao cliente",
-        "Testar 2 ciclos consecutivos de alteração"
-      )
-    },
-    {
-      id: uid(),
-      title: "Blindar contas administrativas",
-      epic: "Auth / Segurança",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 5,
-      status: "planned",
-      description: "Eliminar risco de alguém ocupar e-mails administrativos num banco novo e remover dependência frágil de contas fixas no código.",
-      notes: "",
-      checklist: checklist(
-        "Mapear regra atual de ADMIN_EMAILS/empresa especial",
-        "Definir bootstrap seguro de sócios",
-        "Impedir apropriação de e-mail privilegiado",
-        "Revisar permissões de admin",
-        "Documentar processo de criação de admin"
-      )
-    },
-    {
-      id: uid(),
-      title: "Fechar cobrança ORÇAH no Asaas",
-      epic: "Asaas / Assinatura",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 8,
-      status: "backlog",
-      description: "Usuário com teste vencido precisa ter uma rota clara para pagar e voltar ao produto, sem ficar preso por configuração ausente.",
-      notes: "Primeiro sandbox; depois produção e webhook.",
-      checklist: checklist(
-        "Mapear tela e estados de assinatura",
-        "Testar criação de cobrança em sandbox",
-        "Implementar tratamento quando chave não existe",
-        "Configurar webhook",
-        "Configurar produção",
-        "Testar vencimento → pagamento → desbloqueio"
-      )
-    },
-    {
-      id: uid(),
-      title: "Recuperação de senha + limite de tentativas",
-      epic: "Auth / Segurança",
-      assignee: "Cesar",
-      priority: "high",
-      points: 8,
-      status: "backlog",
-      description: "Adicionar recuperação segura de senha e rate limit no login.",
-      notes: "Pode exigir tabela/token, provedor de e-mail e serviço de rate limiting.",
-      checklist: checklist(
-        "Escolher provedor de e-mail",
-        "Criar fluxo de reset com expiração",
-        "Adicionar rate limit",
-        "Invalidar token após uso",
-        "Testar enumeração de usuário e abuso"
-      )
-    },
-    {
-      id: uid(),
-      title: "WhatsApp: redesenhar experiência de envio",
-      epic: "WhatsApp",
-      assignee: "Adriel",
-      priority: "high",
-      points: 8,
-      status: "planned",
-      description: "O WhatsApp precisa parecer parte central do ORÇAH: contexto certo, mensagem boa, estados claros e envio rápido.",
-      notes: "Hoje funciona como saída do fluxo, mas a experiência ainda não está no nível do produto.",
-      checklist: checklist(
-        "Auditar todas as entradas de WhatsApp",
-        "Definir mensagens por estado do orçamento",
-        "Criar CTA consistente em mobile/desktop",
-        "Adicionar copiar mensagem/link como fallback",
-        "Testar número inválido e ausência de WhatsApp",
-        "Validar fluxo cliente novo → enviar em poucos toques"
-      )
-    },
-    {
-      id: uid(),
-      title: "Instagram: definir função real no produto",
-      epic: "Instagram",
-      assignee: "Adriel",
-      priority: "high",
-      points: 8,
-      status: "backlog",
-      description: "Redesenhar a presença/integração de Instagram para que ajude aquisição, prova social ou compartilhamento de orçamento — e não seja só um link solto.",
-      notes: "Antes de codar, fechar objetivo: perfil profissional, share card, captação de lead ou combinação destes.",
-      checklist: checklist(
-        "Auditar Instagram atual",
-        "Definir job-to-be-done principal",
-        "Desenhar fluxo de compartilhamento",
-        "Criar preview/card visual do orçamento",
-        "Validar experiência mobile",
-        "Instrumentar cliques/uso"
-      )
-    },
-    {
-      id: uid(),
-      title: "Lista de orçamentos com filtros",
-      epic: "CRM / Orçamentos",
-      assignee: "Adriel",
-      priority: "high",
-      points: 5,
-      status: "planned",
-      description: "Criar visão operacional para localizar orçamento por cliente, status, período e valor sem depender do dashboard.",
-      notes: "",
-      checklist: checklist(
-        "Definir colunas essenciais",
-        "Filtro por status",
-        "Busca por cliente",
-        "Filtro por período",
-        "Ordenação por atualização/valor",
-        "Abrir orçamento direto da lista"
-      )
-    },
-    {
-      id: uid(),
-      title: "Cliente clicável com histórico e edição",
-      epic: "CRM / Clientes",
-      assignee: "Adriel",
-      priority: "high",
-      points: 8,
-      status: "planned",
-      description: "Transformar cliente em entidade útil: editar cadastro, ver histórico e iniciar orçamento em contexto.",
-      notes: "",
-      checklist: checklist(
-        "Abrir detalhe ao clicar no cliente",
-        "Editar dados do cliente",
-        "Mostrar histórico de orçamentos",
-        "Criar orçamento a partir do cliente",
-        "Exibir totais e último contato"
-      )
-    },
-    {
-      id: uid(),
-      title: "Salvar e enviar em um passo",
-      epic: "Orçamentos / UX",
-      assignee: "Adriel",
-      priority: "high",
-      points: 3,
-      status: "backlog",
-      description: "Adicionar ação principal que salva o orçamento e abre o envio imediatamente, mantendo salvar rascunho como alternativa.",
-      notes: "",
-      checklist: checklist(
-        "Definir CTA principal",
-        "Garantir persistência antes de compartilhar",
-        "Abrir WhatsApp com mensagem pronta",
-        "Tratar erro sem perder dados"
-      )
-    },
-    {
-      id: uid(),
-      title: "Criar orçamento a partir de pedido",
-      epic: "Leads / Pedidos",
-      assignee: "Adriel",
-      priority: "high",
-      points: 3,
-      status: "backlog",
-      description: "Pedido recebido pela página da empresa deve virar orçamento sem redigitar cliente e contexto.",
-      notes: "",
-      checklist: checklist(
-        "Adicionar CTA no pedido",
-        "Pré-preencher cliente",
-        "Pré-preencher contexto do pedido",
-        "Marcar pedido como convertido"
-      )
-    },
-    {
-      id: uid(),
-      title: "Observações padrão por empresa",
-      epic: "Orçamentos / Produtividade",
-      assignee: "Adriel",
-      priority: "medium",
-      points: 3,
-      status: "backlog",
-      description: "Permitir textos padrão para garantia, validade, condições e observações repetitivas.",
-      notes: "",
-      checklist: checklist(
-        "Criar configuração por empresa",
-        "Aplicar no novo orçamento",
-        "Permitir editar sem alterar o padrão",
-        "Exibir corretamente no PDF/página pública"
-      )
-    },
-    {
-      id: uid(),
-      title: "Testes automáticos das regras de dinheiro",
-      epic: "Qualidade / CI",
-      assignee: "Cesar",
-      priority: "high",
-      points: 5,
-      status: "planned",
-      description: "Cobrir cálculos de subtotal, desconto, quantidade decimal, total e arredondamento, rodando no CI.",
-      notes: "",
-      checklist: checklist(
-        "Mapear funções de cálculo",
-        "Casos com quantidade decimal",
-        "Casos com desconto",
-        "Casos de arredondamento",
-        "Executar testes no CI"
-      )
-    },
-    {
-      id: uid(),
-      title: "Teste E2E completo em produção",
-      epic: "Qualidade / Release",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 5,
-      status: "backlog",
-      description: "Validar o caminho real: cadastro → onboarding → cliente → orçamento → envio → visualização → alteração/aprovação → PDF.",
-      notes: "Executar depois de banco, seed, storage e ciclo de alteração estarem fechados.",
-      checklist: checklist(
-        "Cadastro e onboarding",
-        "Criar cliente",
-        "Criar orçamento com foto/logo",
-        "Abrir página pública",
-        "Pedir alteração e reenviar",
-        "Aprovar/recusar",
-        "Gerar PDF"
-      )
-    },
-    {
-      id: uid(),
-      title: "Revisar cache offline/PWA do painel",
-      epic: "PWA / Confiabilidade",
-      assignee: "Cesar",
-      priority: "medium",
-      points: 3,
-      status: "backlog",
-      description: "Evitar que o app entregue tela administrativa obsoleta ou comportamento confuso por cache offline.",
-      notes: "",
-      checklist: checklist(
-        "Mapear service worker/cache atual",
-        "Separar assets estáticos de dados privados",
-        "Definir estratégia de invalidação",
-        "Testar atualização de versão"
-      )
-    },
-    {
-      id: uid(),
-      title: "Follow-up automático de orçamento",
-      epic: "Crescimento / Follow-up",
-      assignee: "Adriel",
-      priority: "medium",
-      points: 8,
-      status: "backlog",
-      description: "Ajudar o prestador a recuperar orçamentos visualizados e não respondidos com cadência simples e controlável.",
-      notes: "Feature nova. Só entra depois do core de produção estável.",
-      checklist: checklist(
-        "Definir gatilhos e cadência",
-        "Criar preferências por empresa",
-        "Criar mensagens sugeridas",
-        "Registrar follow-ups enviados",
-        "Permitir pausar por orçamento"
-      )
-    },
-    {
-      id: uid(),
-      title: "Pagamento do cliente final via Pix",
-      epic: "Pagamentos",
-      assignee: "Cesar",
-      priority: "medium",
-      points: 13,
-      status: "backlog",
-      description: "Permitir que o cliente pague o prestador pelo orçamento aprovado, com conciliação e status claro.",
-      notes: "Não confundir com a assinatura do ORÇAH no Asaas.",
-      checklist: checklist(
-        "Definir modelo de pagamento",
-        "Criar cobrança ligada ao orçamento",
-        "Exibir Pix ao cliente",
-        "Processar webhook",
-        "Conciliar status no orçamento",
-        "Tratar cancelamento/expiração"
-      )
-    },
-    {
-      id: uid(),
-      title: "Módulo financeiro",
-      epic: "Financeiro",
-      assignee: "Cesar",
-      priority: "medium",
-      points: 13,
-      status: "backlog",
-      description: "Transformar orçamentos aprovados/pagos em visão financeira útil para o prestador.",
-      notes: "Feature de fase 2.",
-      checklist: checklist(
-        "Definir entradas/saídas mínimas",
-        "Recebíveis por orçamento",
-        "Status de pagamento",
-        "Resumo por período",
-        "Exportação"
-      )
-    },
-    {
-      id: uid(),
-      title: "Ordem de serviço",
-      epic: "Operação",
-      assignee: "Adriel",
-      priority: "medium",
-      points: 8,
-      status: "backlog",
-      description: "Converter orçamento aprovado em execução: escopo, status, responsável, datas e observações.",
-      notes: "",
-      checklist: checklist(
-        "Definir entidade/estados",
-        "Converter orçamento aprovado",
-        "Tela de execução",
-        "Histórico de mudanças",
-        "Finalizar serviço"
-      )
-    },
-    {
-      id: uid(),
-      title: "Agenda de serviços",
-      epic: "Agenda",
-      assignee: "Adriel",
-      priority: "medium",
-      points: 8,
-      status: "backlog",
-      description: "Agendar visita ou execução diretamente a partir do cliente/orçamento/ordem de serviço.",
-      notes: "",
-      checklist: checklist(
-        "Visão diária/semanal",
-        "Criar evento a partir de orçamento",
-        "Vincular cliente e endereço",
-        "Reagendamento",
-        "Lembrete"
-      )
-    },
-    {
-      id: uid(),
-      title: "Orçamento por voz",
-      epic: "IA / Produtividade",
-      assignee: "Adriel",
-      priority: "low",
-      points: 13,
-      status: "backlog",
-      description: "Prestador dita serviço, quantidades e observações; ORÇAH estrutura um rascunho editável.",
-      notes: "Feature de fase posterior, depois de dados e fluxos estarem sólidos.",
-      checklist: checklist(
-        "Definir formato de comando",
-        "Transcrever áudio",
-        "Extrair itens e quantidades",
-        "Mapear para molde profissional",
-        "Tela de revisão antes de salvar"
-      )
-    },
-    {
-      id: uid(),
-      title: "NFS-e",
-      epic: "Fiscal",
-      assignee: "Cesar",
-      priority: "low",
-      points: 13,
-      status: "backlog",
-      description: "Preparar arquitetura para emissão fiscal ligada ao serviço concluído/pago.",
-      notes: "Depende de escopo fiscal e provedores; tratar como épico, não quick win.",
-      checklist: checklist(
-        "Escolher estratégia/provedor",
-        "Mapear municípios alvo",
-        "Definir dados fiscais necessários",
-        "Criar fluxo de emissão",
-        "Armazenar retorno/documento"
-      )
-    },
-    {
-      id: uid(),
-      title: "Pós-venda e pedido de avaliação",
-      epic: "Crescimento / Pós-venda",
-      assignee: "Adriel",
-      priority: "low",
-      points: 8,
-      status: "backlog",
-      description: "Após conclusão, facilitar agradecimento, avaliação e nova oportunidade de serviço.",
-      notes: "",
-      checklist: checklist(
-        "Definir gatilho de conclusão",
-        "Mensagem de agradecimento",
-        "Pedido de avaliação",
-        "Registrar retorno do cliente",
-        "Criar lembrete de recompra quando fizer sentido"
-      )
-    },
+  function sanitizeCheck(item) {
+    return {
+      id: item?.id || uid(),
+      text: String(item?.text || ""),
+      done: Boolean(item?.done),
+      comments: Array.isArray(item?.comments) ? item.comments.map(comment => ({
+        id: comment?.id || uid(),
+        text: String(comment?.text || ""),
+        author: String(comment?.author || "Equipe"),
+        at: comment?.at || new Date().toISOString()
+      })) : []
+    };
+  }
 
-    {
-      id: uid(),
-      title: "Corrigir redirecionamento pós-login",
-      epic: "Produção / Login",
-      assignee: "Cesar",
-      priority: "critical",
-      points: 3,
-      status: "done",
-      description: "Manter páginas das empresas em /empresa/<slug> e cookie no mesmo endereço enquanto não existe domínio próprio.",
-      notes: "Concluído na auditoria atual.",
-      checklist: [
-        { id: uid(), text: "Remover subdomínio inexistente", done: true, comments: [] },
-        { id: uid(), text: "Ajustar cookie de sessão", done: true, comments: [] },
-        { id: uid(), text: "Validar desenvolvimento local", done: true, comments: [] }
-      ]
-    },
-    {
-      id: uid(),
-      title: "Reestruturar PDF do orçamento",
-      epic: "PDF",
-      assignee: "Adriel",
-      priority: "high",
-      points: 5,
-      status: "done",
-      description: "Totais e observações em largura correta, cabeçalho repetido, logo do prestador, máscaras e arquivo menor.",
-      notes: "Concluído na auditoria atual.",
-      checklist: [
-        { id: uid(), text: "Corrigir largura dos blocos", done: true, comments: [] },
-        { id: uid(), text: "Repetir cabeçalho por página", done: true, comments: [] },
-        { id: uid(), text: "Logo do prestador", done: true, comments: [] },
-        { id: uid(), text: "Formato brasileiro", done: true, comments: [] }
-      ]
-    },
-    {
-      id: uid(),
-      title: "Melhorar página pública e aprovação",
-      epic: "Página pública",
-      assignee: "Adriel",
-      priority: "high",
-      points: 3,
-      status: "done",
-      description: "Confirmação antes de aprovar, contato em todos os estados e correção de zoom no iPhone.",
-      notes: "Concluído na auditoria atual.",
-      checklist: [
-        { id: uid(), text: "Confirmação de aprovação", done: true, comments: [] },
-        { id: uid(), text: "Botão de contato", done: true, comments: [] },
-        { id: uid(), text: "Corrigir input no iPhone", done: true, comments: [] }
-      ]
-    },
-    {
-      id: uid(),
-      title: "Erros legíveis e formulário de orçamento robusto",
-      epic: "UX / Formulários",
-      assignee: "Adriel",
-      priority: "high",
-      points: 5,
-      status: "done",
-      description: "Erros visíveis, preview igual ao servidor, prevenção de cliente duplicado e formulários com melhor autocomplete/teclado.",
-      notes: "Concluído na auditoria atual.",
-      checklist: [
-        { id: uid(), text: "Erro na barra fixa", done: true, comments: [] },
-        { id: uid(), text: "Preview de valores corrigido", done: true, comments: [] },
-        { id: uid(), text: "Evitar cliente duplicado", done: true, comments: [] },
-        { id: uid(), text: "Erros do servidor legíveis", done: true, comments: [] }
-      ]
-    }
-  ];
+  function sanitizeSubcard(sub, parentAssignee = "Adriel") {
+    return {
+      id: sub?.id || uid(),
+      title: String(sub?.title || "Subcard"),
+      assignee: sub?.assignee === "Cesar" ? "Cesar" : (sub?.assignee === "Adriel" ? "Adriel" : parentAssignee),
+      points: [1,2,3,5,8,13].includes(Number(sub?.points)) ? Number(sub.points) : 3,
+      status: COLUMNS.some(column => column.key === sub?.status) ? sub.status : "planned",
+      description: String(sub?.description || ""),
+      checklist: Array.isArray(sub?.checklist) ? sub.checklist.map(sanitizeCheck) : []
+    };
+  }
 
-  let cards = loadCards();
-  let meetings = loadMeetings();
-  let workingCard = null;
-  let activeCardId = null;
-
-  const $ = selector => document.querySelector(selector);
-  const board = $("#board");
-  const cardModal = $("#cardModal");
-  const newCardModal = $("#newCardModal");
+  function sanitizeCard(card) {
+    const assignee = card?.assignee === "Cesar" ? "Cesar" : "Adriel";
+    return {
+      id: card?.id || uid(),
+      title: String(card?.title || "Tarefa"),
+      epic: String(card?.epic || "Geral"),
+      assignee,
+      priority: PRIORITIES[card?.priority] ? card.priority : "medium",
+      points: [1,2,3,5,8,13].includes(Number(card?.points)) ? Number(card.points) : 3,
+      status: COLUMNS.some(column => column.key === card?.status) ? card.status : "backlog",
+      description: String(card?.description || ""),
+      notes: String(card?.notes || ""),
+      subcards: Array.isArray(card?.subcards) ? card.subcards.map(sub => sanitizeSubcard(sub, assignee)) : [],
+      checklist: Array.isArray(card?.checklist) ? card.checklist.map(sanitizeCheck) : []
+    };
+  }
 
   function loadCards() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
+    const candidates = [STORAGE_KEY, ...LEGACY_KEYS];
+    for (const key of candidates) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) {
-          const migrated = migrateCards(parsed);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-          return migrated;
+        const list = Array.isArray(parsed) ? parsed : parsed?.cards;
+        if (Array.isArray(list) && list.length) {
+          const sanitized = list.map(sanitizeCard);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+          return sanitized;
         }
-      }
-    } catch (error) {
-      console.warn("Não foi possível carregar o board salvo.", error);
+      } catch {}
     }
-    const initial = migrateCards(seedCards());
+
+    const initial = seedCards().map(sanitizeCard);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
     return initial;
   }
 
-  function loadMeetings() {
-    try {
-      const raw = localStorage.getItem(MEETING_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
+  let cards = loadCards();
+  let activeCardId = null;
+  let workingCard = null;
 
-  function persistMeetings() {
-    localStorage.setItem(MEETING_KEY, JSON.stringify(meetings));
-  }
+  const board = $("#board");
+  const cardModal = $("#cardModal");
+  const newCardModal = $("#newCardModal");
 
   function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
@@ -700,33 +420,43 @@
   }
 
   function normalize(value = "") {
-    return String(value)
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+    return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   }
 
-  function cardPointValue(card) {
-    const subcards = Array.isArray(card.subcards) ? card.subcards : [];
-    if (subcards.length) return subcards.reduce((sum, sub) => sum + Number(sub.points || 0), 0);
+  function cardPoints(card) {
+    if ((card.subcards || []).length) {
+      return card.subcards.reduce((sum, sub) => sum + Number(sub.points || 0), 0);
+    }
     return Number(card.points || 0);
   }
 
-  function cardDonePoints(card) {
-    const subcards = Array.isArray(card.subcards) ? card.subcards : [];
-    if (subcards.length) {
-      return subcards
+  function donePoints(card) {
+    if ((card.subcards || []).length) {
+      return card.subcards
         .filter(sub => sub.status === "done")
         .reduce((sum, sub) => sum + Number(sub.points || 0), 0);
     }
     return card.status === "done" ? Number(card.points || 0) : 0;
   }
 
-  function allChecklistItems(card) {
+  function allChecks(card) {
     return [
       ...(card.checklist || []),
       ...(card.subcards || []).flatMap(sub => sub.checklist || [])
     ];
+  }
+
+  function progressFor(card) {
+    const checks = allChecks(card);
+    if (!checks.length) {
+      if ((card.subcards || []).length) {
+        const done = card.subcards.filter(sub => sub.status === "done").length;
+        return { done, total: card.subcards.length, percent: card.subcards.length ? Math.round(done / card.subcards.length * 100) : 0 };
+      }
+      return { done: card.status === "done" ? 1 : 0, total: 1, percent: card.status === "done" ? 100 : 0 };
+    }
+    const done = checks.filter(item => item.done).length;
+    return { done, total: checks.length, percent: Math.round(done / checks.length * 100) };
   }
 
   function getFilters() {
@@ -738,32 +468,20 @@
   }
 
   function cardMatches(card, filters) {
-    if (filters.assignee !== "all" && card.assignee !== filters.assignee) return false;
+    if (filters.assignee !== "all" && card.assignee !== filters.assignee && !(card.subcards || []).some(sub => sub.assignee === filters.assignee)) return false;
     if (filters.priority !== "all" && card.priority !== filters.priority) return false;
     if (!filters.search) return true;
-    const haystack = [
-      card.title,
-      card.epic,
-      card.description,
-      card.notes,
-      ...(card.checklist || []).map(item => item.text),
-      ...(card.checklist || []).flatMap(item => (item.comments || []).map(comment => comment.text)),
+
+    const text = [
+      card.title, card.epic, card.description, card.notes, card.assignee,
+      ...(card.checklist || []).flatMap(item => [item.text, ...(item.comments || []).map(comment => comment.text)]),
       ...(card.subcards || []).flatMap(sub => [
-        sub.title,
-        sub.description,
-        sub.assignee,
-        ...(sub.checklist || []).map(item => item.text),
-        ...(sub.checklist || []).flatMap(item => (item.comments || []).map(comment => comment.text))
+        sub.title, sub.description, sub.assignee,
+        ...(sub.checklist || []).flatMap(item => [item.text, ...(item.comments || []).map(comment => comment.text)])
       ])
     ].join(" ");
-    return normalize(haystack).includes(filters.search);
-  }
 
-  function checklistStats(card) {
-    const items = allChecklistItems(card);
-    const total = items.length;
-    const done = items.filter(item => item.done).length;
-    return { total, done, percent: total ? Math.round((done / total) * 100) : 0 };
+    return normalize(text).includes(filters.search);
   }
 
   function renderBoard() {
@@ -771,29 +489,28 @@
     board.innerHTML = "";
 
     COLUMNS.forEach(column => {
-      const allInColumn = cards.filter(card => card.status === column.key);
-      const visible = allInColumn.filter(card => cardMatches(card, filters));
-      const points = visible.reduce((sum, card) => sum + cardPointValue(card), 0);
+      const all = cards.filter(card => card.status === column.key);
+      const visible = all.filter(card => cardMatches(card, filters));
+      const points = visible.reduce((sum, card) => sum + cardPoints(card), 0);
 
-      const columnEl = document.createElement("section");
-      columnEl.className = "kanban-column";
-      columnEl.dataset.status = column.key;
-      columnEl.innerHTML = `
-        <header class="column-head">
-          <div class="column-name">
-            <i class="column-marker" style="background:${column.color}"></i>
+      const section = document.createElement("section");
+      section.className = "column";
+      section.innerHTML = `
+        <header class="column-header">
+          <div class="column-title-wrap">
+            <span class="column-dot" style="background:${column.color}"></span>
             <span class="column-title">${column.title}</span>
             <span class="column-count">${visible.length}</span>
           </div>
           <span class="column-points">${points} pts</span>
         </header>
-        <div class="column-list" data-drop-status="${column.key}"></div>
+        <div class="column-list" data-status="${column.key}"></div>
       `;
 
-      const list = columnEl.querySelector(".column-list");
+      const list = section.querySelector(".column-list");
 
       if (!visible.length) {
-        list.innerHTML = `<div class="empty-column">${allInColumn.length ? "Nenhum card com esses filtros" : "Solte uma tarefa aqui"}</div>`;
+        list.innerHTML = `<div class="empty-column">${all.length ? "Nenhuma tarefa com esses filtros" : "Arraste uma tarefa para cá"}</div>`;
       } else {
         visible.forEach(card => list.appendChild(renderCard(card)));
       }
@@ -802,7 +519,11 @@
         event.preventDefault();
         list.classList.add("drag-over");
       });
-      list.addEventListener("dragleave", () => list.classList.remove("drag-over"));
+
+      list.addEventListener("dragleave", event => {
+        if (!list.contains(event.relatedTarget)) list.classList.remove("drag-over");
+      });
+
       list.addEventListener("drop", event => {
         event.preventDefault();
         list.classList.remove("drag-over");
@@ -810,29 +531,28 @@
         moveCard(id, column.key);
       });
 
-      board.appendChild(columnEl);
+      board.appendChild(section);
     });
 
     renderStats();
-    renderStructure();
-    renderMeetings();
   }
 
   function renderCard(card) {
-    const task = document.createElement("article");
-    const progress = checklistStats(card);
-    task.className = `task-card priority-${card.priority}`;
-    task.draggable = true;
-    task.dataset.id = card.id;
+    const element = document.createElement("article");
+    const progress = progressFor(card);
+    const subcardsDone = (card.subcards || []).filter(sub => sub.status === "done").length;
 
-    const description = card.description || "Sem definição de pronto.";
-    task.innerHTML = `
+    element.className = "task-card";
+    element.draggable = true;
+    element.dataset.id = card.id;
+
+    element.innerHTML = `
       <div class="card-top">
         <span class="epic-pill" title="${escapeHTML(card.epic)}">${escapeHTML(card.epic)}</span>
         <div class="card-menu-wrap">
           <button class="card-menu-btn" type="button" aria-label="Ações">⋮</button>
           <div class="card-menu" hidden>
-            <button type="button" data-action="open">Abrir detalhes</button>
+            <button type="button" data-action="open">Abrir</button>
             <button type="button" data-action="next">Mover adiante</button>
             <button type="button" data-action="duplicate">Duplicar</button>
             <button type="button" class="danger" data-action="delete">Excluir</button>
@@ -840,36 +560,36 @@
         </div>
       </div>
       <h3>${escapeHTML(card.title)}</h3>
-      <p>${escapeHTML(description)}</p>
+      <p>${escapeHTML(card.description || "Sem definição de pronto.")}</p>
       ${(card.subcards || []).length ? `
         <div class="card-subcards">
-          <span class="subcard-count">${card.subcards.length} subcards</span>
-          <span>${card.subcards.filter(sub => sub.status === "done").length}/${card.subcards.length} concluídos</span>
+          <span>${card.subcards.length} subcards</span>
+          <span>${subcardsDone}/${card.subcards.length} concluídos</span>
         </div>
       ` : ""}
       <div class="card-progress">
-        <div class="progress-row">
-          <span>Checklist</span>
+        <div class="card-progress-row">
+          <span>Progresso</span>
           <span>${progress.done}/${progress.total}</span>
         </div>
         <div class="mini-track"><div class="mini-fill" style="width:${progress.percent}%"></div></div>
       </div>
       <footer class="card-foot">
         <div class="card-meta">
-          <span class="pin ${card.priority}">${PRIORITIES[card.priority].short}</span>
-          <span class="points-badge">${cardPointValue(card)} pts</span>
+          <span class="priority ${card.priority}">${PRIORITIES[card.priority].label}</span>
+          <span class="points">${cardPoints(card)} pts</span>
         </div>
-        <span class="assignee-chip ${card.assignee}" title="${card.assignee}">${card.assignee.charAt(0)}</span>
+        <span class="assignee ${card.assignee}" title="${card.assignee}">${card.assignee.charAt(0)}</span>
       </footer>
     `;
 
-    task.addEventListener("click", event => {
+    const menu = element.querySelector(".card-menu");
+    const menuButton = element.querySelector(".card-menu-btn");
+
+    element.addEventListener("click", event => {
       if (event.target.closest(".card-menu-wrap")) return;
       openCard(card.id);
     });
-
-    const menuButton = task.querySelector(".card-menu-btn");
-    const menu = task.querySelector(".card-menu");
 
     menuButton.addEventListener("click", event => {
       event.stopPropagation();
@@ -890,26 +610,33 @@
       if (action === "delete") deleteCard(card.id);
     });
 
-    task.addEventListener("dragstart", event => {
+    element.addEventListener("dragstart", event => {
       event.dataTransfer.setData("text/plain", card.id);
       event.dataTransfer.effectAllowed = "move";
-      requestAnimationFrame(() => task.classList.add("dragging"));
+      requestAnimationFrame(() => element.classList.add("dragging"));
     });
 
-    task.addEventListener("dragend", () => task.classList.remove("dragging"));
+    element.addEventListener("dragend", () => element.classList.remove("dragging"));
 
-    return task;
+    return element;
   }
 
   function renderStats() {
-    const totalPoints = cards.reduce((sum, card) => sum + cardPointValue(card), 0);
-    const donePoints = cards.reduce((sum, card) => sum + cardDonePoints(card), 0);
-    const remaining = totalPoints - donePoints;
-    const percent = totalPoints ? Math.round((donePoints / totalPoints) * 100) : 0;
-    const doing = cards.filter(card => card.status === "doing").length;
-    const critical = cards.filter(card => card.priority === "critical" && card.status !== "done").length;
-    const done = cards.filter(card => card.status === "done").length;
-    const openPointsFor = assignee => cards.reduce((sum, card) => {
+    const total = cards.reduce((sum, card) => sum + cardPoints(card), 0);
+    const done = cards.reduce((sum, card) => sum + donePoints(card), 0);
+    const remaining = Math.max(0, total - done);
+    const percent = total ? Math.round(done / total * 100) : 0;
+
+    $("#progressPercent").textContent = `${percent}%`;
+    $("#progressFill").style.width = `${percent}%`;
+    $("#donePoints").textContent = `${done} pts concluídos`;
+    $("#totalPoints").textContent = `${total} pts totais`;
+    $("#statRemaining").textContent = remaining;
+    $("#statDoing").textContent = cards.filter(card => card.status === "doing").length;
+    $("#statCritical").textContent = cards.filter(card => card.priority === "critical" && card.status !== "done").length;
+    $("#statDone").textContent = cards.filter(card => card.status === "done").length;
+
+    const pointsFor = assignee => cards.reduce((sum, card) => {
       if ((card.subcards || []).length) {
         return sum + card.subcards
           .filter(sub => sub.assignee === assignee && sub.status !== "done")
@@ -917,53 +644,45 @@
       }
       return sum + (card.assignee === assignee && card.status !== "done" ? Number(card.points || 0) : 0);
     }, 0);
-    const adrielOpen = openPointsFor("Adriel");
-    const cesarOpen = openPointsFor("Cesar");
 
-    $("#missionPercent").textContent = `${percent}%`;
-    $("#missionFill").style.width = `${percent}%`;
-    $("#missionDone").textContent = `${donePoints} pts concluídos`;
-    $("#missionTotal").textContent = `${totalPoints} pts totais`;
-    $("#statRemaining").textContent = remaining;
-    $("#statDoing").textContent = doing;
-    $("#statCritical").textContent = critical;
-    $("#statDone").textContent = done;
-    $("#statAdriel").textContent = `${adrielOpen} pts`;
-    $("#statCesar").textContent = `${cesarOpen} pts`;
+    $("#statAdriel").textContent = `${pointsFor("Adriel")} pts`;
+    $("#statCesar").textContent = `${pointsFor("Cesar")} pts`;
   }
 
   function moveCard(id, status) {
     const card = cards.find(item => item.id === id);
     if (!card || card.status === status) return;
     card.status = status;
+    if (status === "done") {
+      card.subcards = (card.subcards || []).map(sub => ({ ...sub, status: "done", checklist: (sub.checklist || []).map(item => ({ ...item, done: true })) }));
+      card.checklist = (card.checklist || []).map(item => ({ ...item, done: true }));
+    }
     persist();
     renderBoard();
-    toast(`“${card.title}” movido para ${COLUMNS.find(col => col.key === status)?.title || status}.`);
+    toast(`Tarefa movida para ${COLUMNS.find(column => column.key === status)?.title || status}.`);
   }
 
   function moveNext(id) {
     const card = cards.find(item => item.id === id);
     if (!card) return;
     const index = COLUMNS.findIndex(column => column.key === card.status);
-    if (index < 0 || index === COLUMNS.length - 1) {
-      toast("Essa tarefa já está concluída.");
-      return;
-    }
+    if (index < 0 || index >= COLUMNS.length - 1) return toast("Essa tarefa já está na última coluna.");
     moveCard(id, COLUMNS[index + 1].key);
   }
 
   function duplicateCard(id) {
-    const source = cards.find(item => item.id === id);
-    if (!source) return;
-    const copy = JSON.parse(JSON.stringify(source));
+    const original = cards.find(item => item.id === id);
+    if (!original) return;
+    const copy = structuredClone ? structuredClone(original) : JSON.parse(JSON.stringify(original));
     copy.id = uid();
     copy.title = `${copy.title} — cópia`;
     copy.status = "planned";
-    copy.checklist = (copy.checklist || []).map(item => ({
-      ...item,
+    copy.checklist = (copy.checklist || []).map(item => ({ ...item, id: uid(), done: false, comments: [] }));
+    copy.subcards = (copy.subcards || []).map(sub => ({
+      ...sub,
       id: uid(),
-      done: false,
-      comments: []
+      status: "planned",
+      checklist: (sub.checklist || []).map(item => ({ ...item, id: uid(), done: false, comments: [] }))
     }));
     cards.push(copy);
     persist();
@@ -974,7 +693,7 @@
   function deleteCard(id) {
     const card = cards.find(item => item.id === id);
     if (!card) return;
-    if (!confirm(`Excluir “${card.title}”? Essa ação não pode ser desfeita.`)) return;
+    if (!confirm(`Excluir “${card.title}”?`)) return;
     cards = cards.filter(item => item.id !== id);
     persist();
     if (activeCardId === id) closeCardModal();
@@ -985,11 +704,12 @@
   function openCard(id) {
     const card = cards.find(item => item.id === id);
     if (!card) return;
+
     activeCardId = id;
     workingCard = JSON.parse(JSON.stringify(card));
 
     $("#modalEpic").textContent = workingCard.epic || "TAREFA";
-    $("#cardModalTitle").textContent = workingCard.title;
+    $("#modalTitle").textContent = workingCard.title || "Detalhes da tarefa";
     $("#editTitle").value = workingCard.title || "";
     $("#editEpic").value = workingCard.epic || "";
     $("#editAssignee").value = workingCard.assignee || "Adriel";
@@ -1001,6 +721,7 @@
 
     renderSubcardsEditor();
     renderChecklistEditor();
+
     cardModal.hidden = false;
     document.body.style.overflow = "hidden";
   }
@@ -1012,7 +733,7 @@
     document.body.style.overflow = "";
   }
 
-  function syncModalFieldsToWorkingCard() {
+  function syncFields() {
     if (!workingCard) return;
     workingCard.title = $("#editTitle").value.trim();
     workingCard.epic = $("#editEpic").value.trim();
@@ -1024,12 +745,12 @@
     workingCard.notes = $("#editNotes").value.trim();
   }
 
-  function saveWorkingCard({ complete = false } = {}) {
+  function saveCard({ complete = false } = {}) {
     if (!workingCard || !activeCardId) return;
-    syncModalFieldsToWorkingCard();
+    syncFields();
 
     if (!workingCard.title) {
-      toast("A tarefa precisa de um título.");
+      toast("Informe um título para a tarefa.");
       $("#editTitle").focus();
       return;
     }
@@ -1046,11 +767,11 @@
 
     const index = cards.findIndex(item => item.id === activeCardId);
     if (index < 0) return;
-    cards[index] = workingCard;
+    cards[index] = sanitizeCard(workingCard);
     persist();
     closeCardModal();
     renderBoard();
-    toast(complete ? "Entrega concluída. Boa." : "Alterações salvas.");
+    toast(complete ? "Tarefa concluída." : "Alterações salvas.");
   }
 
   function renderSubcardsEditor() {
@@ -1060,120 +781,46 @@
     if (!Array.isArray(workingCard.subcards)) workingCard.subcards = [];
 
     if (!workingCard.subcards.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-column";
-      empty.textContent = "Sem subcards. Use subcards quando este bloco tiver componentes ou implementações internas.";
-      container.appendChild(empty);
+      container.innerHTML = '<div class="empty-column">Nenhum subcard. Use subcards quando a tarefa precisar ser quebrada em partes menores.</div>';
       return;
     }
 
-    workingCard.subcards.forEach(subcard => {
+    workingCard.subcards.forEach(sub => {
       const fragment = $("#subcardTemplate").content.cloneNode(true);
-      const details = fragment.querySelector(".subcard-editor");
+      const root = fragment.querySelector(".subcard");
+      const collapse = fragment.querySelector(".collapse-button");
       const title = fragment.querySelector(".subcard-title");
       const assignee = fragment.querySelector(".subcard-assignee");
       const points = fragment.querySelector(".subcard-points");
       const status = fragment.querySelector(".subcard-status");
       const description = fragment.querySelector(".subcard-description");
-      const summaryTitle = fragment.querySelector(".subcard-summary-title");
-      const summaryPoints = fragment.querySelector(".subcard-summary-points");
-      const summaryAssignee = fragment.querySelector(".subcard-summary-assignee");
-      const stateDot = fragment.querySelector(".subcard-state-dot");
       const list = fragment.querySelector(".subcard-checklist");
 
-      title.value = subcard.title || "";
-      assignee.value = subcard.assignee || workingCard.assignee || "Adriel";
-      points.value = String(subcard.points || 3);
-      status.value = subcard.status || "planned";
-      description.value = subcard.description || "";
+      title.value = sub.title || "";
+      assignee.value = sub.assignee || workingCard.assignee || "Adriel";
+      points.value = String(sub.points || 3);
+      status.value = sub.status || "planned";
+      description.value = sub.description || "";
 
-      const refreshSummary = () => {
-        summaryTitle.textContent = subcard.title || "Subcard sem nome";
-        summaryPoints.textContent = `${subcard.points || 0} pts`;
-        summaryAssignee.textContent = (subcard.assignee || "?").charAt(0);
-        const color = COLUMNS.find(column => column.key === subcard.status)?.color || "#778b80";
-        stateDot.style.background = color;
-      };
+      title.addEventListener("input", () => { sub.title = title.value; });
+      assignee.addEventListener("change", () => { sub.assignee = assignee.value; });
+      points.addEventListener("change", () => { sub.points = Number(points.value); });
+      status.addEventListener("change", () => { sub.status = status.value; });
+      description.addEventListener("input", () => { sub.description = description.value; });
 
-      title.addEventListener("input", () => { subcard.title = title.value; refreshSummary(); });
-      assignee.addEventListener("change", () => { subcard.assignee = assignee.value; refreshSummary(); });
-      points.addEventListener("change", () => { subcard.points = Number(points.value); refreshSummary(); });
-      status.addEventListener("change", () => { subcard.status = status.value; refreshSummary(); });
-      description.addEventListener("input", () => { subcard.description = description.value; });
-
-      fragment.querySelector(".add-subcard-check").addEventListener("click", () => {
-        subcard.checklist.push({ id: uid(), text: "Novo item", done: false, comments: [] });
-        renderSubcardsEditor();
-      });
+      collapse.addEventListener("click", () => root.classList.toggle("collapsed"));
 
       fragment.querySelector(".remove-subcard").addEventListener("click", () => {
-        workingCard.subcards = workingCard.subcards.filter(item => item.id !== subcard.id);
+        workingCard.subcards = workingCard.subcards.filter(item => item.id !== sub.id);
         renderSubcardsEditor();
       });
 
-      renderNestedChecklist(subcard, list);
-      refreshSummary();
-      container.appendChild(fragment);
-    });
-  }
-
-  function renderNestedChecklist(subcard, container) {
-    container.innerHTML = "";
-    if (!Array.isArray(subcard.checklist)) subcard.checklist = [];
-
-    if (!subcard.checklist.length) {
-      const empty = document.createElement("div");
-      empty.className = "structure-empty";
-      empty.textContent = "Sem checklist neste subcard.";
-      container.appendChild(empty);
-      return;
-    }
-
-    subcard.checklist.forEach(item => {
-      const fragment = $("#checklistItemTemplate").content.cloneNode(true);
-      const article = fragment.querySelector(".check-item");
-      const toggle = fragment.querySelector(".check-toggle");
-      const input = fragment.querySelector(".check-text");
-      const remove = fragment.querySelector(".remove-check");
-      const thread = fragment.querySelector(".comment-thread");
-      const commentInput = fragment.querySelector(".comment-input");
-      const commentSend = fragment.querySelector(".comment-send");
-
-      if (item.done) article.classList.add("done");
-      input.value = item.text || "";
-
-      (item.comments || []).forEach(comment => {
-        const element = document.createElement("div");
-        element.className = "comment";
-        element.innerHTML = `${escapeHTML(comment.text)} <small>· ${escapeHTML(comment.author || subcard.assignee || "Equipe")}</small>`;
-        thread.appendChild(element);
-      });
-
-      toggle.addEventListener("click", () => {
-        item.done = !item.done;
-        renderSubcardsEditor();
-      });
-      input.addEventListener("input", () => { item.text = input.value; });
-      remove.addEventListener("click", () => {
-        subcard.checklist = subcard.checklist.filter(check => check.id !== item.id);
+      fragment.querySelector(".add-subcard-check").addEventListener("click", () => {
+        sub.checklist.push(makeCheck("Novo item"));
         renderSubcardsEditor();
       });
 
-      const send = () => {
-        const text = commentInput.value.trim();
-        if (!text) return;
-        if (!Array.isArray(item.comments)) item.comments = [];
-        item.comments.push({ id: uid(), text, author: subcard.assignee || "Equipe", at: new Date().toISOString() });
-        renderSubcardsEditor();
-      };
-      commentSend.addEventListener("click", send);
-      commentInput.addEventListener("keydown", event => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          send();
-        }
-      });
-
+      renderCheckList(sub.checklist, list, sub.assignee, () => renderSubcardsEditor());
       container.appendChild(fragment);
     });
   }
@@ -1185,85 +832,83 @@
       "Novo subcard",
       workingCard.assignee || "Adriel",
       3,
-      "Defina aqui o componente, implementação ou tecnologia que precisa ficar pronta.",
+      "Defina o que precisa ficar pronto nesta parte.",
+      "planned",
       []
     ));
     renderSubcardsEditor();
-    const details = $("#subcardsContainer").querySelectorAll(".subcard-editor");
-    const last = details[details.length - 1];
-    if (last) {
-      last.open = true;
-      last.querySelector(".subcard-title")?.select();
+
+    const subcards = $("#subcardsContainer").querySelectorAll(".subcard");
+    const last = subcards[subcards.length - 1];
+    const input = last?.querySelector(".subcard-title");
+    if (input) {
+      input.focus();
+      input.select();
     }
   }
 
   function renderChecklistEditor() {
     const container = $("#checklistContainer");
-    container.innerHTML = "";
-
-    if (!workingCard.checklist) workingCard.checklist = [];
+    if (!workingCard) return;
+    if (!Array.isArray(workingCard.checklist)) workingCard.checklist = [];
 
     if (!workingCard.checklist.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-column";
-      empty.textContent = "Sem checklist. Adicione os passos desta entrega.";
-      container.appendChild(empty);
+      container.innerHTML = '<div class="empty-column">Nenhum item no checklist geral.</div>';
       return;
     }
 
-    workingCard.checklist.forEach(item => {
-      const fragment = $("#checklistItemTemplate").content.cloneNode(true);
-      const article = fragment.querySelector(".check-item");
+    renderCheckList(workingCard.checklist, container, workingCard.assignee || "Equipe", () => renderChecklistEditor());
+  }
+
+  function renderCheckList(list, container, author, rerender) {
+    container.innerHTML = "";
+
+    list.forEach(item => {
+      const fragment = $("#checkItemTemplate").content.cloneNode(true);
+      const root = fragment.querySelector(".check-item");
       const toggle = fragment.querySelector(".check-toggle");
-      const input = fragment.querySelector(".check-text");
+      const text = fragment.querySelector(".check-text");
       const remove = fragment.querySelector(".remove-check");
-      const thread = fragment.querySelector(".comment-thread");
+      const comments = fragment.querySelector(".comment-list");
       const commentInput = fragment.querySelector(".comment-input");
       const commentSend = fragment.querySelector(".comment-send");
 
-      article.dataset.itemId = item.id;
-      if (item.done) article.classList.add("done");
-      input.value = item.text;
+      if (item.done) root.classList.add("done");
+      text.value = item.text || "";
 
       (item.comments || []).forEach(comment => {
-        const element = document.createElement("div");
-        element.className = "comment";
-        element.innerHTML = `${escapeHTML(comment.text)} <small>· ${escapeHTML(comment.author || "Equipe")}</small>`;
-        thread.appendChild(element);
+        const node = document.createElement("div");
+        node.className = "comment";
+        node.innerHTML = `${escapeHTML(comment.text)} <small>${escapeHTML(comment.author || "Equipe")}</small>`;
+        comments.appendChild(node);
       });
 
       toggle.addEventListener("click", () => {
         item.done = !item.done;
-        renderChecklistEditor();
+        rerender();
       });
 
-      input.addEventListener("input", () => {
-        item.text = input.value;
-      });
+      text.addEventListener("input", () => { item.text = text.value; });
 
       remove.addEventListener("click", () => {
-        workingCard.checklist = workingCard.checklist.filter(check => check.id !== item.id);
-        renderChecklistEditor();
+        const index = list.findIndex(check => check.id === item.id);
+        if (index >= 0) list.splice(index, 1);
+        rerender();
       });
 
-      const sendComment = () => {
-        const text = commentInput.value.trim();
-        if (!text) return;
-        if (!item.comments) item.comments = [];
-        item.comments.push({
-          id: uid(),
-          text,
-          author: workingCard.assignee || "Equipe",
-          at: new Date().toISOString()
-        });
-        renderChecklistEditor();
+      const addComment = () => {
+        const value = commentInput.value.trim();
+        if (!value) return;
+        if (!Array.isArray(item.comments)) item.comments = [];
+        item.comments.push({ id: uid(), text: value, author, at: new Date().toISOString() });
+        rerender();
       };
 
-      commentSend.addEventListener("click", sendComment);
+      commentSend.addEventListener("click", addComment);
       commentInput.addEventListener("keydown", event => {
         if (event.key === "Enter") {
           event.preventDefault();
-          sendComment();
+          addComment();
         }
       });
 
@@ -1273,13 +918,7 @@
 
   function addChecklistItem() {
     if (!workingCard) return;
-    if (!workingCard.checklist) workingCard.checklist = [];
-    workingCard.checklist.push({
-      id: uid(),
-      text: "Novo item",
-      done: false,
-      comments: []
-    });
+    workingCard.checklist.push(makeCheck("Novo item"));
     renderChecklistEditor();
     const inputs = $("#checklistContainer").querySelectorAll(".check-text");
     const last = inputs[inputs.length - 1];
@@ -1293,7 +932,7 @@
     $("#newCardForm").reset();
     newCardModal.hidden = false;
     document.body.style.overflow = "hidden";
-    setTimeout(() => $("#newCardForm input[name='title']").focus(), 30);
+    setTimeout(() => $("#newCardForm input[name='title']").focus(), 20);
   }
 
   function closeNewCardModal() {
@@ -1301,23 +940,24 @@
     document.body.style.overflow = "";
   }
 
-  function createCardFromForm(event) {
+  function createCard(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const card = {
+
+    const card = sanitizeCard({
       id: uid(),
-      title: String(form.get("title") || "").trim(),
-      epic: String(form.get("epic") || "").trim(),
-      assignee: String(form.get("assignee") || "Adriel"),
-      priority: String(form.get("priority") || "medium"),
-      points: Number(form.get("points") || 3),
-      status: String(form.get("status") || "planned"),
-      description: String(form.get("description") || "").trim(),
+      title: form.get("title"),
+      epic: form.get("epic"),
+      assignee: form.get("assignee"),
+      priority: form.get("priority"),
+      points: Number(form.get("points")),
+      status: form.get("status"),
+      description: form.get("description"),
       notes: "",
       subcards: [],
-      hierarchySeeded: true,
       checklist: []
-    };
+    });
+
     cards.push(card);
     persist();
     closeNewCardModal();
@@ -1325,177 +965,14 @@
     toast("Nova tarefa criada.");
   }
 
-  function setView(view) {
-    document.querySelectorAll(".view-tab").forEach(button => {
-      button.classList.toggle("active", button.dataset.view === view);
-    });
-    $("#kanbanView").hidden = view !== "kanban";
-    $("#structureView").hidden = view !== "structure";
-    $("#meetingsView").hidden = view !== "meetings";
-    if (view === "structure") renderStructure();
-    if (view === "meetings") renderMeetings();
-  }
-
-  function renderStructure() {
-    const tree = $("#structureTree");
-    if (!tree) return;
-    const groups = new Map();
-    cards.forEach(card => {
-      const key = card.epic || "Sem frente";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(card);
-    });
-
-    tree.innerHTML = "";
-    [...groups.entries()]
-      .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
-      .forEach(([epic, groupCards]) => {
-        const section = document.createElement("section");
-        section.className = "structure-epic";
-        const points = groupCards.reduce((sum, card) => sum + cardPointValue(card), 0);
-        section.innerHTML = `
-          <header class="structure-epic-head">
-            <h3>${escapeHTML(epic)}</h3>
-            <span>${groupCards.length} blocos · ${points} pts</span>
-          </header>
-          <div class="structure-blocks"></div>
-        `;
-        const blocks = section.querySelector(".structure-blocks");
-
-        groupCards.forEach(card => {
-          const block = document.createElement("article");
-          block.className = "structure-block";
-          const subcards = card.subcards || [];
-          block.innerHTML = `
-            <div class="structure-block-main">
-              <div class="structure-block-title">
-                <strong>${escapeHTML(card.title)}</strong>
-                <small>${escapeHTML(card.description || "")}</small>
-              </div>
-              <span class="points-badge">${cardPointValue(card)} pts</span>
-              <button class="btn btn-ghost compact" type="button" data-open-card="${card.id}">Abrir bloco</button>
-            </div>
-            <div class="structure-subcards">
-              ${subcards.length ? subcards.map(sub => `
-                <div class="structure-subcard">
-                  <div>
-                    <strong>${escapeHTML(sub.title)}</strong>
-                    <small>${escapeHTML(sub.description || "Sem pré-definição")}</small>
-                  </div>
-                  <span class="points-badge">${Number(sub.points || 0)} pts</span>
-                  <span class="pin ${sub.status === "done" ? "low" : card.priority}">${escapeHTML(sub.assignee || card.assignee)}</span>
-                </div>
-              `).join("") : '<span class="structure-empty">Este bloco ainda não foi quebrado em subcards.</span>'}
-            </div>
-          `;
-          block.querySelector("[data-open-card]").addEventListener("click", () => openCard(card.id));
-          blocks.appendChild(block);
-        });
-
-        tree.appendChild(section);
-      });
-  }
-
-  function renderMeetings() {
-    const list = $("#meetingList");
-    if (!list) return;
-    $("#meetingCount").textContent = String(meetings.length);
-    $("#meetingBadge").textContent = String(meetings.length);
-    list.innerHTML = "";
-
-    if (!meetings.length) {
-      list.innerHTML = '<div class="empty-column">Nenhum assunto pendente. Ideias e pedidos de reunião aparecem aqui antes de entrarem no roadmap.</div>';
-      return;
-    }
-
-    meetings
-      .slice()
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .forEach(item => {
-        const article = document.createElement("article");
-        article.className = "meeting-item";
-        article.innerHTML = `
-          <div class="meeting-item-head">
-            <div>
-              <span class="meeting-origin">${escapeHTML(item.client)}</span>
-              <h4>${escapeHTML(item.title)}</h4>
-            </div>
-            <span class="pin ${item.priority}">${PRIORITIES[item.priority]?.short || "MÉDIA"}</span>
-          </div>
-          <p>${escapeHTML(item.context || "Sem contexto adicional.")}</p>
-          <div class="meeting-item-meta">
-            <span>Triagem: ${escapeHTML(item.owner)}</span>
-            <span>·</span>
-            <span>${new Date(item.createdAt).toLocaleDateString("pt-BR")}</span>
-          </div>
-          <div class="meeting-item-actions">
-            <button class="btn btn-primary compact" type="button" data-convert>Virar card</button>
-            <button class="btn btn-danger-ghost compact" type="button" data-remove>Descartar</button>
-          </div>
-        `;
-        article.querySelector("[data-convert]").addEventListener("click", () => convertMeetingToCard(item.id));
-        article.querySelector("[data-remove]").addEventListener("click", () => removeMeeting(item.id));
-        list.appendChild(article);
-      });
-  }
-
-  function addMeeting(event) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    meetings.push({
-      id: uid(),
-      client: String(form.get("client") || "").trim(),
-      title: String(form.get("title") || "").trim(),
-      context: String(form.get("context") || "").trim(),
-      priority: String(form.get("priority") || "medium"),
-      owner: String(form.get("owner") || "Adriel"),
-      createdAt: new Date().toISOString()
-    });
-    persistMeetings();
-    event.currentTarget.reset();
-    renderMeetings();
-    toast("Assunto adicionado à pré-produção.");
-  }
-
-  function convertMeetingToCard(id) {
-    const item = meetings.find(entry => entry.id === id);
-    if (!item) return;
-    cards.push({
-      id: uid(),
-      title: item.title,
-      epic: "Pré-produção / " + item.client,
-      assignee: item.owner,
-      priority: item.priority,
-      points: 3,
-      status: "planned",
-      description: item.context || "Assunto convertido da área de reuniões/pré-produção.",
-      notes: "Origem: " + item.client,
-      subcards: [],
-      hierarchySeeded: true,
-      checklist: []
-    });
-    meetings = meetings.filter(entry => entry.id !== id);
-    persist();
-    persistMeetings();
-    renderBoard();
-    toast("Assunto convertido em card do Kanban.");
-  }
-
-  function removeMeeting(id) {
-    meetings = meetings.filter(entry => entry.id !== id);
-    persistMeetings();
-    renderMeetings();
-    toast("Assunto removido da pré-produção.");
-  }
-
   function exportBoard() {
     const payload = {
       product: "ORÇAH",
+      version: 3,
       exportedAt: new Date().toISOString(),
-      version: 2,
-      cards,
-      meetings
+      cards
     };
+
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1505,7 +982,7 @@
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    toast("Board exportado em JSON.");
+    toast("Kanban exportado.");
   }
 
   function importBoard(file) {
@@ -1513,64 +990,60 @@
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result);
-        const importedCards = Array.isArray(parsed) ? parsed : parsed.cards;
-        if (!Array.isArray(importedCards)) throw new Error("Formato inválido");
-        cards = migrateCards(importedCards);
-        if (Array.isArray(parsed.meetings)) meetings = parsed.meetings;
+        const list = Array.isArray(parsed) ? parsed : parsed.cards;
+        if (!Array.isArray(list)) throw new Error("Formato inválido");
+        cards = list.map(sanitizeCard);
         persist();
-        persistMeetings();
         renderBoard();
-        toast("Board importado com sucesso.");
+        toast("Kanban importado.");
       } catch {
-        toast("Não foi possível importar esse arquivo.");
+        toast("Arquivo inválido.");
       }
     };
     reader.readAsText(file);
   }
 
   function toast(message) {
-    const region = $("#toastRegion");
-    const item = document.createElement("div");
-    item.className = "toast";
-    item.textContent = message;
-    region.appendChild(item);
-    setTimeout(() => item.remove(), 2800);
+    const node = document.createElement("div");
+    node.className = "toast";
+    node.textContent = message;
+    $("#toastRegion").appendChild(node);
+    setTimeout(() => node.remove(), 2500);
+  }
+
+  function closeMenus() {
+    document.querySelectorAll(".card-menu").forEach(menu => { menu.hidden = true; });
   }
 
   function wireEvents() {
-    document.querySelectorAll(".view-tab").forEach(button => {
-      button.addEventListener("click", () => setView(button.dataset.view));
+    $("#newCardBtn").addEventListener("click", openNewCardModal);
+    $("#closeNewCardModal").addEventListener("click", closeNewCardModal);
+    $("#cancelNewCardBtn").addEventListener("click", closeNewCardModal);
+    $("#newCardForm").addEventListener("submit", createCard);
+
+    $("#closeCardModal").addEventListener("click", closeCardModal);
+    $("#saveCardBtn").addEventListener("click", () => saveCard());
+    $("#completeCardBtn").addEventListener("click", () => saveCard({ complete: true }));
+    $("#deleteCardBtn").addEventListener("click", () => activeCardId && deleteCard(activeCardId));
+    $("#addSubcardBtn").addEventListener("click", addSubcard);
+    $("#addChecklistBtn").addEventListener("click", addChecklistItem);
+
+    $("#editTitle").addEventListener("input", event => {
+      $("#modalTitle").textContent = event.target.value || "Detalhes da tarefa";
     });
-    $("#meetingForm").addEventListener("submit", addMeeting);
+    $("#editEpic").addEventListener("input", event => {
+      $("#modalEpic").textContent = event.target.value || "TAREFA";
+    });
 
     $("#searchInput").addEventListener("input", renderBoard);
     $("#assigneeFilter").addEventListener("change", renderBoard);
     $("#priorityFilter").addEventListener("change", renderBoard);
 
-    $("#resetFiltersBtn").addEventListener("click", () => {
+    $("#clearFiltersBtn").addEventListener("click", () => {
       $("#searchInput").value = "";
       $("#assigneeFilter").value = "all";
       $("#priorityFilter").value = "all";
       renderBoard();
-    });
-
-    $("#newCardBtn").addEventListener("click", openNewCardModal);
-    $("#closeNewCardModal").addEventListener("click", closeNewCardModal);
-    $("#cancelNewCardBtn").addEventListener("click", closeNewCardModal);
-    $("#newCardForm").addEventListener("submit", createCardFromForm);
-
-    $("#closeCardModal").addEventListener("click", closeCardModal);
-    $("#addSubcardBtn").addEventListener("click", addSubcard);
-    $("#addChecklistBtn").addEventListener("click", addChecklistItem);
-    $("#saveCardBtn").addEventListener("click", () => saveWorkingCard());
-    $("#completeCardBtn").addEventListener("click", () => saveWorkingCard({ complete: true }));
-    $("#deleteCardBtn").addEventListener("click", () => activeCardId && deleteCard(activeCardId));
-
-    $("#editTitle").addEventListener("input", event => {
-      $("#cardModalTitle").textContent = event.target.value || "Detalhes da tarefa";
-    });
-    $("#editEpic").addEventListener("input", event => {
-      $("#modalEpic").textContent = event.target.value || "TAREFA";
     });
 
     $("#exportBtn").addEventListener("click", exportBoard);
@@ -1582,9 +1055,7 @@
     });
 
     document.addEventListener("click", event => {
-      if (!event.target.closest(".card-menu-wrap")) {
-        document.querySelectorAll(".card-menu").forEach(menu => { menu.hidden = true; });
-      }
+      if (!event.target.closest(".card-menu-wrap")) closeMenus();
     });
 
     [cardModal, newCardModal].forEach(backdrop => {
@@ -1597,6 +1068,7 @@
 
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
+      closeMenus();
       if (!cardModal.hidden) closeCardModal();
       if (!newCardModal.hidden) closeNewCardModal();
     });
@@ -1604,5 +1076,4 @@
 
   wireEvents();
   renderBoard();
-  setView("kanban");
 })();

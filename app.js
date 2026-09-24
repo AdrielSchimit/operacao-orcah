@@ -2,6 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "operacao-orcah-board-v1";
+  const MEETING_KEY = "operacao-orcah-meetings-v1";
 
   const COLUMNS = [
     { key: "backlog", title: "Backlog", color: "#778b80" },
@@ -22,6 +23,104 @@
 
   const checklist = (...items) =>
     items.map(text => ({ id: uid(), text, done: false, comments: [] }));
+
+  const makeSubcard = (title, assignee, points, description, items = [], status = "planned") => ({
+    id: uid(),
+    title,
+    assignee,
+    points,
+    status,
+    description,
+    checklist: checklist(...items)
+  });
+
+  function defaultSubcardsFor(card) {
+    const presets = {
+      "Storage externo para logo e fotos": [
+        makeSubcard("Adapter de storage", "Cesar", 2, "Criar uma camada única para upload, troca e remoção sem acoplar o app ao provedor.", ["Escolher interface", "Implementar provider Vercel Blob", "Tratar erros"]),
+        makeSubcard("Logo da empresa", "Cesar", 2, "Migrar upload e substituição de logo para storage persistente.", ["Upload", "Troca", "Remoção"]),
+        makeSubcard("Fotos do orçamento", "Cesar", 3, "Persistir fotos e garantir leitura na página pública/PDF.", ["Upload múltiplo", "URLs persistentes", "Validar página pública"])
+      ],
+      "WhatsApp: redesenhar experiência de envio": [
+        makeSubcard("Mensagens por estado", "Adriel", 3, "Definir texto e contexto para orçamento novo, alteração, aprovado, recusado e follow-up.", ["Mapear estados", "Escrever mensagens", "Revisar tom"]),
+        makeSubcard("CTA e abertura do WhatsApp", "Adriel", 3, "Unificar o botão principal e garantir abertura correta em mobile e desktop.", ["CTA padrão", "Mobile", "Desktop"]),
+        makeSubcard("Fallback e observabilidade", "Adriel", 2, "Quando o WhatsApp não puder abrir, oferecer cópia de mensagem/link e registrar falhas.", ["Copiar mensagem", "Copiar link", "Mensagem de erro"])
+      ],
+      "Instagram: definir função real no produto": [
+        makeSubcard("Job-to-be-done do Instagram", "Adriel", 2, "Fechar se o Instagram servirá prioritariamente para aquisição, prova social, compartilhamento ou combinação desses usos.", ["Auditar estado atual", "Escolher objetivo principal"]),
+        makeSubcard("Preview compartilhável", "Adriel", 3, "Criar card/preview bonito do orçamento ou da empresa para compartilhamento.", ["Layout", "Dados dinâmicos", "Mobile"]),
+        makeSubcard("Tracking de aquisição", "Adriel", 3, "Medir cliques e origem quando o Instagram gerar tráfego ou pedidos.", ["Definir eventos", "Registrar origem", "Exibir métrica"])
+      ],
+      "Lista de orçamentos com filtros": [
+        makeSubcard("Tabela/lista operacional", "Adriel", 2, "Definir visual compacto com cliente, status, valor e última atualização.", ["Campos essenciais", "Responsivo"]),
+        makeSubcard("Busca, filtros e ordenação", "Adriel", 3, "Encontrar orçamento por cliente, status, período e valor.", ["Busca", "Status", "Período", "Ordenação"])
+      ],
+      "Cliente clicável com histórico e edição": [
+        makeSubcard("Perfil do cliente", "Adriel", 2, "Tela única com dados e ações principais.", ["Abrir detalhe", "Exibir dados"]),
+        makeSubcard("Edição", "Adriel", 2, "Editar dados sem duplicar cliente.", ["Salvar", "Validar telefone/e-mail"]),
+        makeSubcard("Histórico e novo orçamento", "Adriel", 4, "Listar orçamentos do cliente e iniciar um novo já preenchido.", ["Histórico", "Abrir orçamento", "Criar orçamento"])
+      ]
+    };
+    return presets[card.title] ? presets[card.title].map(item => ({ ...item })) : [];
+  }
+
+  function makeRamosCard() {
+    return {
+      id: uid(),
+      title: "Estruturar ramos e moldes profissionais",
+      epic: "Produto / Ramos e Moldes",
+      assignee: "Adriel",
+      priority: "medium",
+      points: 13,
+      status: "backlog",
+      description: "Organizar todos os ramos existentes como estrutura de produto, com definição clara do que cada molde pede, como aparece no orçamento e como será testado.",
+      notes: "A ideia não é jogar dezenas de ramos como cards soltos no Kanban. Este bloco guarda a árvore e as auditorias por família/molde.",
+      hierarchySeeded: true,
+      subcards: [
+        makeSubcard("Inventário de ramos", "Adriel", 3, "Catalogar os ramos existentes e identificar duplicidades ou nomes ruins.", ["Exportar catálogo atual", "Agrupar por família", "Marcar duplicidades"]),
+        makeSubcard("Vínculo ramo → molde", "Adriel", 3, "Garantir que cada ramo usa o molde correto e os campos esperados.", ["Mapear vínculos", "Validar exceções", "Corrigir inconsistências"]),
+        makeSubcard("Campos e regras de cada molde", "Adriel", 3, "Documentar quais campos aparecem e quais regras mudam por tipo profissional.", ["Campos obrigatórios", "Unidades", "Regras específicas"]),
+        makeSubcard("Preview público por molde", "Adriel", 2, "Conferir como cada família aparece para o cliente final.", ["Desktop", "Mobile", "PDF"]),
+        makeSubcard("Regressão dos moldes", "Cesar", 2, "Criar uma matriz mínima de testes para impedir quebra de ramo/molde.", ["Casos principais", "Seed de teste", "Executar no CI"])
+      ],
+      checklist: checklist("Fechar inventário", "Fechar matriz ramo → molde", "Definir cobertura mínima de testes")
+    };
+  }
+
+  function migrateCards(list) {
+    const migrated = list.map(card => {
+      const next = { ...card };
+      next.checklist = Array.isArray(next.checklist) ? next.checklist : [];
+      next.subcards = Array.isArray(next.subcards) ? next.subcards : [];
+
+      if (!next.hierarchySeeded) {
+        const defaults = defaultSubcardsFor(next);
+        if (defaults.length && !next.subcards.length) next.subcards = defaults;
+        next.hierarchySeeded = true;
+      }
+
+      next.subcards = next.subcards.map(sub => ({
+        id: sub.id || uid(),
+        title: sub.title || "Subcard",
+        assignee: sub.assignee || next.assignee || "Adriel",
+        points: Number(sub.points || 3),
+        status: sub.status || "planned",
+        description: sub.description || "",
+        checklist: (sub.checklist || []).map(item => ({
+          id: item.id || uid(),
+          text: item.text || "",
+          done: Boolean(item.done),
+          comments: Array.isArray(item.comments) ? item.comments : []
+        }))
+      }));
+      return next;
+    });
+
+    if (!migrated.some(card => card.title === "Estruturar ramos e moldes profissionais")) {
+      migrated.push(makeRamosCard());
+    }
+    return migrated;
+  }
 
   const seedCards = () => [
     {
@@ -545,6 +644,7 @@
   ];
 
   let cards = loadCards();
+  let meetings = loadMeetings();
   let workingCard = null;
   let activeCardId = null;
 
@@ -558,14 +658,32 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+        if (Array.isArray(parsed) && parsed.length) {
+          const migrated = migrateCards(parsed);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+          return migrated;
+        }
       }
     } catch (error) {
       console.warn("Não foi possível carregar o board salvo.", error);
     }
-    const initial = seedCards();
+    const initial = migrateCards(seedCards());
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
     return initial;
+  }
+
+  function loadMeetings() {
+    try {
+      const raw = localStorage.getItem(MEETING_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistMeetings() {
+    localStorage.setItem(MEETING_KEY, JSON.stringify(meetings));
   }
 
   function persist() {
@@ -588,6 +706,29 @@
       .toLowerCase();
   }
 
+  function cardPointValue(card) {
+    const subcards = Array.isArray(card.subcards) ? card.subcards : [];
+    if (subcards.length) return subcards.reduce((sum, sub) => sum + Number(sub.points || 0), 0);
+    return Number(card.points || 0);
+  }
+
+  function cardDonePoints(card) {
+    const subcards = Array.isArray(card.subcards) ? card.subcards : [];
+    if (subcards.length) {
+      return subcards
+        .filter(sub => sub.status === "done")
+        .reduce((sum, sub) => sum + Number(sub.points || 0), 0);
+    }
+    return card.status === "done" ? Number(card.points || 0) : 0;
+  }
+
+  function allChecklistItems(card) {
+    return [
+      ...(card.checklist || []),
+      ...(card.subcards || []).flatMap(sub => sub.checklist || [])
+    ];
+  }
+
   function getFilters() {
     return {
       search: normalize($("#searchInput").value.trim()),
@@ -606,14 +747,22 @@
       card.description,
       card.notes,
       ...(card.checklist || []).map(item => item.text),
-      ...(card.checklist || []).flatMap(item => (item.comments || []).map(comment => comment.text))
+      ...(card.checklist || []).flatMap(item => (item.comments || []).map(comment => comment.text)),
+      ...(card.subcards || []).flatMap(sub => [
+        sub.title,
+        sub.description,
+        sub.assignee,
+        ...(sub.checklist || []).map(item => item.text),
+        ...(sub.checklist || []).flatMap(item => (item.comments || []).map(comment => comment.text))
+      ])
     ].join(" ");
     return normalize(haystack).includes(filters.search);
   }
 
   function checklistStats(card) {
-    const total = (card.checklist || []).length;
-    const done = (card.checklist || []).filter(item => item.done).length;
+    const items = allChecklistItems(card);
+    const total = items.length;
+    const done = items.filter(item => item.done).length;
     return { total, done, percent: total ? Math.round((done / total) * 100) : 0 };
   }
 
@@ -624,7 +773,7 @@
     COLUMNS.forEach(column => {
       const allInColumn = cards.filter(card => card.status === column.key);
       const visible = allInColumn.filter(card => cardMatches(card, filters));
-      const points = visible.reduce((sum, card) => sum + Number(card.points || 0), 0);
+      const points = visible.reduce((sum, card) => sum + cardPointValue(card), 0);
 
       const columnEl = document.createElement("section");
       columnEl.className = "kanban-column";
@@ -665,6 +814,8 @@
     });
 
     renderStats();
+    renderStructure();
+    renderMeetings();
   }
 
   function renderCard(card) {
@@ -690,6 +841,12 @@
       </div>
       <h3>${escapeHTML(card.title)}</h3>
       <p>${escapeHTML(description)}</p>
+      ${(card.subcards || []).length ? `
+        <div class="card-subcards">
+          <span class="subcard-count">${card.subcards.length} subcards</span>
+          <span>${card.subcards.filter(sub => sub.status === "done").length}/${card.subcards.length} concluídos</span>
+        </div>
+      ` : ""}
       <div class="card-progress">
         <div class="progress-row">
           <span>Checklist</span>
@@ -700,7 +857,7 @@
       <footer class="card-foot">
         <div class="card-meta">
           <span class="pin ${card.priority}">${PRIORITIES[card.priority].short}</span>
-          <span class="points-badge">${card.points} pts</span>
+          <span class="points-badge">${cardPointValue(card)} pts</span>
         </div>
         <span class="assignee-chip ${card.assignee}" title="${card.assignee}">${card.assignee.charAt(0)}</span>
       </footer>
@@ -745,15 +902,23 @@
   }
 
   function renderStats() {
-    const totalPoints = cards.reduce((sum, card) => sum + Number(card.points || 0), 0);
-    const donePoints = cards.filter(card => card.status === "done").reduce((sum, card) => sum + Number(card.points || 0), 0);
+    const totalPoints = cards.reduce((sum, card) => sum + cardPointValue(card), 0);
+    const donePoints = cards.reduce((sum, card) => sum + cardDonePoints(card), 0);
     const remaining = totalPoints - donePoints;
     const percent = totalPoints ? Math.round((donePoints / totalPoints) * 100) : 0;
     const doing = cards.filter(card => card.status === "doing").length;
     const critical = cards.filter(card => card.priority === "critical" && card.status !== "done").length;
     const done = cards.filter(card => card.status === "done").length;
-    const adrielOpen = cards.filter(card => card.assignee === "Adriel" && card.status !== "done").reduce((sum, card) => sum + Number(card.points || 0), 0);
-    const cesarOpen = cards.filter(card => card.assignee === "Cesar" && card.status !== "done").reduce((sum, card) => sum + Number(card.points || 0), 0);
+    const openPointsFor = assignee => cards.reduce((sum, card) => {
+      if ((card.subcards || []).length) {
+        return sum + card.subcards
+          .filter(sub => sub.assignee === assignee && sub.status !== "done")
+          .reduce((subSum, sub) => subSum + Number(sub.points || 0), 0);
+      }
+      return sum + (card.assignee === assignee && card.status !== "done" ? Number(card.points || 0) : 0);
+    }, 0);
+    const adrielOpen = openPointsFor("Adriel");
+    const cesarOpen = openPointsFor("Cesar");
 
     $("#missionPercent").textContent = `${percent}%`;
     $("#missionFill").style.width = `${percent}%`;
@@ -834,6 +999,7 @@
     $("#editDescription").value = workingCard.description || "";
     $("#editNotes").value = workingCard.notes || "";
 
+    renderSubcardsEditor();
     renderChecklistEditor();
     cardModal.hidden = false;
     document.body.style.overflow = "hidden";
@@ -871,6 +1037,11 @@
     if (complete) {
       workingCard.status = "done";
       workingCard.checklist = (workingCard.checklist || []).map(item => ({ ...item, done: true }));
+      workingCard.subcards = (workingCard.subcards || []).map(sub => ({
+        ...sub,
+        status: "done",
+        checklist: (sub.checklist || []).map(item => ({ ...item, done: true }))
+      }));
     }
 
     const index = cards.findIndex(item => item.id === activeCardId);
@@ -880,6 +1051,150 @@
     closeCardModal();
     renderBoard();
     toast(complete ? "Entrega concluída. Boa." : "Alterações salvas.");
+  }
+
+  function renderSubcardsEditor() {
+    const container = $("#subcardsContainer");
+    container.innerHTML = "";
+    if (!workingCard) return;
+    if (!Array.isArray(workingCard.subcards)) workingCard.subcards = [];
+
+    if (!workingCard.subcards.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-column";
+      empty.textContent = "Sem subcards. Use subcards quando este bloco tiver componentes ou implementações internas.";
+      container.appendChild(empty);
+      return;
+    }
+
+    workingCard.subcards.forEach(subcard => {
+      const fragment = $("#subcardTemplate").content.cloneNode(true);
+      const details = fragment.querySelector(".subcard-editor");
+      const title = fragment.querySelector(".subcard-title");
+      const assignee = fragment.querySelector(".subcard-assignee");
+      const points = fragment.querySelector(".subcard-points");
+      const status = fragment.querySelector(".subcard-status");
+      const description = fragment.querySelector(".subcard-description");
+      const summaryTitle = fragment.querySelector(".subcard-summary-title");
+      const summaryPoints = fragment.querySelector(".subcard-summary-points");
+      const summaryAssignee = fragment.querySelector(".subcard-summary-assignee");
+      const stateDot = fragment.querySelector(".subcard-state-dot");
+      const list = fragment.querySelector(".subcard-checklist");
+
+      title.value = subcard.title || "";
+      assignee.value = subcard.assignee || workingCard.assignee || "Adriel";
+      points.value = String(subcard.points || 3);
+      status.value = subcard.status || "planned";
+      description.value = subcard.description || "";
+
+      const refreshSummary = () => {
+        summaryTitle.textContent = subcard.title || "Subcard sem nome";
+        summaryPoints.textContent = `${subcard.points || 0} pts`;
+        summaryAssignee.textContent = (subcard.assignee || "?").charAt(0);
+        const color = COLUMNS.find(column => column.key === subcard.status)?.color || "#778b80";
+        stateDot.style.background = color;
+      };
+
+      title.addEventListener("input", () => { subcard.title = title.value; refreshSummary(); });
+      assignee.addEventListener("change", () => { subcard.assignee = assignee.value; refreshSummary(); });
+      points.addEventListener("change", () => { subcard.points = Number(points.value); refreshSummary(); });
+      status.addEventListener("change", () => { subcard.status = status.value; refreshSummary(); });
+      description.addEventListener("input", () => { subcard.description = description.value; });
+
+      fragment.querySelector(".add-subcard-check").addEventListener("click", () => {
+        subcard.checklist.push({ id: uid(), text: "Novo item", done: false, comments: [] });
+        renderSubcardsEditor();
+      });
+
+      fragment.querySelector(".remove-subcard").addEventListener("click", () => {
+        workingCard.subcards = workingCard.subcards.filter(item => item.id !== subcard.id);
+        renderSubcardsEditor();
+      });
+
+      renderNestedChecklist(subcard, list);
+      refreshSummary();
+      container.appendChild(fragment);
+    });
+  }
+
+  function renderNestedChecklist(subcard, container) {
+    container.innerHTML = "";
+    if (!Array.isArray(subcard.checklist)) subcard.checklist = [];
+
+    if (!subcard.checklist.length) {
+      const empty = document.createElement("div");
+      empty.className = "structure-empty";
+      empty.textContent = "Sem checklist neste subcard.";
+      container.appendChild(empty);
+      return;
+    }
+
+    subcard.checklist.forEach(item => {
+      const fragment = $("#checklistItemTemplate").content.cloneNode(true);
+      const article = fragment.querySelector(".check-item");
+      const toggle = fragment.querySelector(".check-toggle");
+      const input = fragment.querySelector(".check-text");
+      const remove = fragment.querySelector(".remove-check");
+      const thread = fragment.querySelector(".comment-thread");
+      const commentInput = fragment.querySelector(".comment-input");
+      const commentSend = fragment.querySelector(".comment-send");
+
+      if (item.done) article.classList.add("done");
+      input.value = item.text || "";
+
+      (item.comments || []).forEach(comment => {
+        const element = document.createElement("div");
+        element.className = "comment";
+        element.innerHTML = `${escapeHTML(comment.text)} <small>· ${escapeHTML(comment.author || subcard.assignee || "Equipe")}</small>`;
+        thread.appendChild(element);
+      });
+
+      toggle.addEventListener("click", () => {
+        item.done = !item.done;
+        renderSubcardsEditor();
+      });
+      input.addEventListener("input", () => { item.text = input.value; });
+      remove.addEventListener("click", () => {
+        subcard.checklist = subcard.checklist.filter(check => check.id !== item.id);
+        renderSubcardsEditor();
+      });
+
+      const send = () => {
+        const text = commentInput.value.trim();
+        if (!text) return;
+        if (!Array.isArray(item.comments)) item.comments = [];
+        item.comments.push({ id: uid(), text, author: subcard.assignee || "Equipe", at: new Date().toISOString() });
+        renderSubcardsEditor();
+      };
+      commentSend.addEventListener("click", send);
+      commentInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          send();
+        }
+      });
+
+      container.appendChild(fragment);
+    });
+  }
+
+  function addSubcard() {
+    if (!workingCard) return;
+    if (!Array.isArray(workingCard.subcards)) workingCard.subcards = [];
+    workingCard.subcards.push(makeSubcard(
+      "Novo subcard",
+      workingCard.assignee || "Adriel",
+      3,
+      "Defina aqui o componente, implementação ou tecnologia que precisa ficar pronta.",
+      []
+    ));
+    renderSubcardsEditor();
+    const details = $("#subcardsContainer").querySelectorAll(".subcard-editor");
+    const last = details[details.length - 1];
+    if (last) {
+      last.open = true;
+      last.querySelector(".subcard-title")?.select();
+    }
   }
 
   function renderChecklistEditor() {
@@ -999,6 +1314,8 @@
       status: String(form.get("status") || "planned"),
       description: String(form.get("description") || "").trim(),
       notes: "",
+      subcards: [],
+      hierarchySeeded: true,
       checklist: []
     };
     cards.push(card);
@@ -1008,12 +1325,176 @@
     toast("Nova tarefa criada.");
   }
 
+  function setView(view) {
+    document.querySelectorAll(".view-tab").forEach(button => {
+      button.classList.toggle("active", button.dataset.view === view);
+    });
+    $("#kanbanView").hidden = view !== "kanban";
+    $("#structureView").hidden = view !== "structure";
+    $("#meetingsView").hidden = view !== "meetings";
+    if (view === "structure") renderStructure();
+    if (view === "meetings") renderMeetings();
+  }
+
+  function renderStructure() {
+    const tree = $("#structureTree");
+    if (!tree) return;
+    const groups = new Map();
+    cards.forEach(card => {
+      const key = card.epic || "Sem frente";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(card);
+    });
+
+    tree.innerHTML = "";
+    [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+      .forEach(([epic, groupCards]) => {
+        const section = document.createElement("section");
+        section.className = "structure-epic";
+        const points = groupCards.reduce((sum, card) => sum + cardPointValue(card), 0);
+        section.innerHTML = `
+          <header class="structure-epic-head">
+            <h3>${escapeHTML(epic)}</h3>
+            <span>${groupCards.length} blocos · ${points} pts</span>
+          </header>
+          <div class="structure-blocks"></div>
+        `;
+        const blocks = section.querySelector(".structure-blocks");
+
+        groupCards.forEach(card => {
+          const block = document.createElement("article");
+          block.className = "structure-block";
+          const subcards = card.subcards || [];
+          block.innerHTML = `
+            <div class="structure-block-main">
+              <div class="structure-block-title">
+                <strong>${escapeHTML(card.title)}</strong>
+                <small>${escapeHTML(card.description || "")}</small>
+              </div>
+              <span class="points-badge">${cardPointValue(card)} pts</span>
+              <button class="btn btn-ghost compact" type="button" data-open-card="${card.id}">Abrir bloco</button>
+            </div>
+            <div class="structure-subcards">
+              ${subcards.length ? subcards.map(sub => `
+                <div class="structure-subcard">
+                  <div>
+                    <strong>${escapeHTML(sub.title)}</strong>
+                    <small>${escapeHTML(sub.description || "Sem pré-definição")}</small>
+                  </div>
+                  <span class="points-badge">${Number(sub.points || 0)} pts</span>
+                  <span class="pin ${sub.status === "done" ? "low" : card.priority}">${escapeHTML(sub.assignee || card.assignee)}</span>
+                </div>
+              `).join("") : '<span class="structure-empty">Este bloco ainda não foi quebrado em subcards.</span>'}
+            </div>
+          `;
+          block.querySelector("[data-open-card]").addEventListener("click", () => openCard(card.id));
+          blocks.appendChild(block);
+        });
+
+        tree.appendChild(section);
+      });
+  }
+
+  function renderMeetings() {
+    const list = $("#meetingList");
+    if (!list) return;
+    $("#meetingCount").textContent = String(meetings.length);
+    $("#meetingBadge").textContent = String(meetings.length);
+    list.innerHTML = "";
+
+    if (!meetings.length) {
+      list.innerHTML = '<div class="empty-column">Nenhum assunto pendente. Ideias e pedidos de reunião aparecem aqui antes de entrarem no roadmap.</div>';
+      return;
+    }
+
+    meetings
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .forEach(item => {
+        const article = document.createElement("article");
+        article.className = "meeting-item";
+        article.innerHTML = `
+          <div class="meeting-item-head">
+            <div>
+              <span class="meeting-origin">${escapeHTML(item.client)}</span>
+              <h4>${escapeHTML(item.title)}</h4>
+            </div>
+            <span class="pin ${item.priority}">${PRIORITIES[item.priority]?.short || "MÉDIA"}</span>
+          </div>
+          <p>${escapeHTML(item.context || "Sem contexto adicional.")}</p>
+          <div class="meeting-item-meta">
+            <span>Triagem: ${escapeHTML(item.owner)}</span>
+            <span>·</span>
+            <span>${new Date(item.createdAt).toLocaleDateString("pt-BR")}</span>
+          </div>
+          <div class="meeting-item-actions">
+            <button class="btn btn-primary compact" type="button" data-convert>Virar card</button>
+            <button class="btn btn-danger-ghost compact" type="button" data-remove>Descartar</button>
+          </div>
+        `;
+        article.querySelector("[data-convert]").addEventListener("click", () => convertMeetingToCard(item.id));
+        article.querySelector("[data-remove]").addEventListener("click", () => removeMeeting(item.id));
+        list.appendChild(article);
+      });
+  }
+
+  function addMeeting(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    meetings.push({
+      id: uid(),
+      client: String(form.get("client") || "").trim(),
+      title: String(form.get("title") || "").trim(),
+      context: String(form.get("context") || "").trim(),
+      priority: String(form.get("priority") || "medium"),
+      owner: String(form.get("owner") || "Adriel"),
+      createdAt: new Date().toISOString()
+    });
+    persistMeetings();
+    event.currentTarget.reset();
+    renderMeetings();
+    toast("Assunto adicionado à pré-produção.");
+  }
+
+  function convertMeetingToCard(id) {
+    const item = meetings.find(entry => entry.id === id);
+    if (!item) return;
+    cards.push({
+      id: uid(),
+      title: item.title,
+      epic: "Pré-produção / " + item.client,
+      assignee: item.owner,
+      priority: item.priority,
+      points: 3,
+      status: "planned",
+      description: item.context || "Assunto convertido da área de reuniões/pré-produção.",
+      notes: "Origem: " + item.client,
+      subcards: [],
+      hierarchySeeded: true,
+      checklist: []
+    });
+    meetings = meetings.filter(entry => entry.id !== id);
+    persist();
+    persistMeetings();
+    renderBoard();
+    toast("Assunto convertido em card do Kanban.");
+  }
+
+  function removeMeeting(id) {
+    meetings = meetings.filter(entry => entry.id !== id);
+    persistMeetings();
+    renderMeetings();
+    toast("Assunto removido da pré-produção.");
+  }
+
   function exportBoard() {
     const payload = {
       product: "ORÇAH",
       exportedAt: new Date().toISOString(),
-      version: 1,
-      cards
+      version: 2,
+      cards,
+      meetings
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -1034,8 +1515,10 @@
         const parsed = JSON.parse(reader.result);
         const importedCards = Array.isArray(parsed) ? parsed : parsed.cards;
         if (!Array.isArray(importedCards)) throw new Error("Formato inválido");
-        cards = importedCards;
+        cards = migrateCards(importedCards);
+        if (Array.isArray(parsed.meetings)) meetings = parsed.meetings;
         persist();
+        persistMeetings();
         renderBoard();
         toast("Board importado com sucesso.");
       } catch {
@@ -1055,6 +1538,11 @@
   }
 
   function wireEvents() {
+    document.querySelectorAll(".view-tab").forEach(button => {
+      button.addEventListener("click", () => setView(button.dataset.view));
+    });
+    $("#meetingForm").addEventListener("submit", addMeeting);
+
     $("#searchInput").addEventListener("input", renderBoard);
     $("#assigneeFilter").addEventListener("change", renderBoard);
     $("#priorityFilter").addEventListener("change", renderBoard);
@@ -1072,6 +1560,7 @@
     $("#newCardForm").addEventListener("submit", createCardFromForm);
 
     $("#closeCardModal").addEventListener("click", closeCardModal);
+    $("#addSubcardBtn").addEventListener("click", addSubcard);
     $("#addChecklistBtn").addEventListener("click", addChecklistItem);
     $("#saveCardBtn").addEventListener("click", () => saveWorkingCard());
     $("#completeCardBtn").addEventListener("click", () => saveWorkingCard({ complete: true }));
@@ -1115,4 +1604,5 @@
 
   wireEvents();
   renderBoard();
+  setView("kanban");
 })();

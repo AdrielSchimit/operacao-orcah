@@ -46,6 +46,7 @@
   let uxPanDrag = null;
   let mobileToolsOpen = false;
   let mobileInspectorOpen = false;
+  let blockPointerDrag = null;
 
   function save() {
     localStorage.setItem(UX_KEY, JSON.stringify(state));
@@ -380,6 +381,96 @@
     state.selectedBlockId = block.id;
     save();
     renderAll();
+  }
+
+
+  function startBlockPointerDrag(event, frameId, blockId) {
+    if (uxPanMode || state.flowMode || event.button !== 0 || event.target.closest("button,input,textarea,select")) return;
+    const frame = state.frames.find(item => item.id === frameId);
+    if (!frame) return;
+
+    state.selectedFrameId = frameId;
+    state.selectedBlockId = blockId;
+    save();
+    renderInspector();
+
+    if (frame.protected) {
+      notify("Esta é a versão Atual. Duplique a tela para mover os blocos.");
+      renderFrames();
+      return;
+    }
+
+    const node = event.currentTarget;
+    blockPointerDrag = {
+      frameId,
+      blockId,
+      startX: event.clientX,
+      startY: event.clientY,
+      started: false,
+      pointerId: event.pointerId,
+      node
+    };
+    node.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveBlockPointerDrag(event) {
+    if (!blockPointerDrag || event.pointerId !== blockPointerDrag.pointerId) return;
+
+    const dx = event.clientX - blockPointerDrag.startX;
+    const dy = event.clientY - blockPointerDrag.startY;
+    if (!blockPointerDrag.started && Math.hypot(dx,dy) < 7) return;
+
+    blockPointerDrag.started = true;
+    document.body.classList.add("ux-block-dragging");
+    blockPointerDrag.node?.classList.add("dragging-block");
+
+    const hovered = document.elementFromPoint(event.clientX,event.clientY)?.closest(".ux-block");
+    if (!hovered) return;
+    const targetBlockId = hovered.dataset.blockId;
+    const targetFrameNode = hovered.closest("[data-ux-frame-id]");
+    const targetFrameId = targetFrameNode?.dataset.uxFrameId;
+    if (!targetFrameId || !targetBlockId) return;
+
+    const sourceFrame = state.frames.find(frame => frame.id === blockPointerDrag.frameId);
+    const targetFrame = state.frames.find(frame => frame.id === targetFrameId);
+    if (!sourceFrame || !targetFrame || targetFrame.protected) return;
+
+    const sourceIndex = sourceFrame.blocks.findIndex(block => block.id === blockPointerDrag.blockId);
+    const targetIndex = targetFrame.blocks.findIndex(block => block.id === targetBlockId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    if (sourceFrame.id === targetFrame.id && sourceIndex === targetIndex) return;
+
+    const [block] = sourceFrame.blocks.splice(sourceIndex,1);
+    let insertAt = targetIndex;
+    if (sourceFrame.id === targetFrame.id && sourceIndex < targetIndex) insertAt = targetIndex - 1;
+    targetFrame.blocks.splice(Math.max(0,insertAt),0,block);
+
+    blockPointerDrag.frameId = targetFrame.id;
+    state.selectedFrameId = targetFrame.id;
+    state.selectedBlockId = block.id;
+    save();
+    renderFrames();
+
+    const replacement = document.querySelector(`[data-ux-frame-id="${targetFrame.id}"] [data-block-id="${block.id}"]`);
+    if (replacement) {
+      replacement.classList.add("dragging-block");
+      blockPointerDrag.node = replacement;
+    }
+  }
+
+  function endBlockPointerDrag(event) {
+    if (!blockPointerDrag || (event?.pointerId != null && event.pointerId !== blockPointerDrag.pointerId)) return;
+    const wasDragging = blockPointerDrag.started;
+    blockPointerDrag.node?.releasePointerCapture?.(blockPointerDrag.pointerId);
+    blockPointerDrag.node?.classList.remove("dragging-block");
+    document.body.classList.remove("ux-block-dragging");
+    blockPointerDrag = null;
+    if (wasDragging) {
+      save();
+      renderAll();
+      persistUxViewport();
+    }
   }
 
   function startFrameDrag(event, frameId) {
@@ -791,11 +882,7 @@
           if (handleFlowFrame(frame.id)) return;
           selectFrame(frame.id, blockId);
         });
-        blockNode.addEventListener("dragstart", event => onBlockDragStart(event, frame.id, blockId));
-        blockNode.addEventListener("dragover", event => {
-          if (!frame.protected) event.preventDefault();
-        });
-        blockNode.addEventListener("drop", event => onBlockDrop(event, frame.id, blockId));
+        blockNode.addEventListener("pointerdown", event => startBlockPointerDrag(event, frame.id, blockId));
         blockNode.querySelector("[data-block-duplicate]")?.addEventListener("click", event => {
           event.stopPropagation();
           duplicateBlock(frame.id, blockId);
@@ -822,7 +909,7 @@
     const editable = !frame.protected;
     return `
       <div class="ux-block ux-type-${cssType(block.type)} ${selected ? "selected" : ""} ${block.visible ? "" : "hidden-block"}"
-           data-block-id="${block.id}" draggable="${editable}">
+           data-block-id="${block.id}" draggable="false">
         <div class="ux-block-grip">${editable ? "⋮⋮" : ""}</div>
         <div class="ux-block-visual">
           ${blockVisual(block)}
@@ -933,7 +1020,11 @@
       const editable = !frame.protected;
       content.innerHTML = `
         <div class="ux-inspector-head"><span>BLOCO</span><strong>${escapeHtml(block.type)}</strong></div>
-        ${frame.protected ? '<div class="ux-readonly-note">Estado Atual protegido. Duplique a tela para editar.</div>' : ""}
+        ${frame.protected ? `<div class="ux-readonly-note">Estado Atual protegido. Você pode selecionar qualquer bloco, mas para mover ou editar precisa criar uma cópia.</div>
+        <div class="ux-version-buttons">
+          <button class="button button-primary" id="uxBlockDupAdriel">Criar cópia editável · Adriel</button>
+          <button class="button button-ghost" id="uxBlockDupCesar">Criar cópia editável · César</button>
+        </div>` : ""}
         <label><span>Tipo</span><select id="uxPropType" ${editable ? "" : "disabled"}>${BLOCK_TYPES.map(type=>`<option ${type===block.type?"selected":""}>${type}</option>`).join("")}</select></label>
         <label><span>Nome</span><input id="uxPropLabel" value="${escapeAttr(block.label)}" ${editable ? "" : "disabled"}></label>
         <label><span>Texto</span><textarea id="uxPropText" rows="4" ${editable ? "" : "disabled"}>${escapeHtml(block.text)}</textarea></label>
@@ -999,6 +1090,10 @@
 
   function bindBlockInspector(frame, block) {
     const editable = !frame.protected;
+    if (!editable) {
+      $("#uxBlockDupAdriel")?.addEventListener("click", () => duplicateFrame(frame.id,"Adriel"));
+      $("#uxBlockDupCesar")?.addEventListener("click", () => duplicateFrame(frame.id,"Cesar"));
+    }
     if (editable) {
       $("#uxPropType").addEventListener("change", event => { block.type = event.target.value; save(); renderAll(); });
       $("#uxPropLabel").addEventListener("input", event => { block.label = event.target.value; save(); renderFrames(); });
@@ -1094,10 +1189,19 @@
       window.__orcahUxScrollSave = setTimeout(persistUxViewport, 120);
     });
     window.addEventListener("pointermove", event => {
-      moveFrameDrag(event);
-      moveUxPan(event);
+      moveBlockPointerDrag(event);
+      if (!blockPointerDrag) {
+        moveFrameDrag(event);
+        moveUxPan(event);
+      }
     });
-    window.addEventListener("pointerup", () => {
+    window.addEventListener("pointerup", event => {
+      endBlockPointerDrag(event);
+      endFrameDrag();
+      endUxPan();
+    });
+    window.addEventListener("pointercancel", event => {
+      endBlockPointerDrag(event);
       endFrameDrag();
       endUxPan();
     });

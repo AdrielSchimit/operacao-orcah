@@ -39,6 +39,7 @@
     }
   }
 
+  let suppressSharedEvents = false;
   let state = loadState();
   let studioMode = "free";
   let frameDrag = null;
@@ -50,6 +51,9 @@
 
   function save() {
     localStorage.setItem(UX_KEY, JSON.stringify(state));
+    if (!suppressSharedEvents) {
+      window.dispatchEvent(new CustomEvent("orcah:shared-change", { detail: { document: "ux" } }));
+    }
   }
 
   function sanitizeBlock(block) {
@@ -1237,6 +1241,19 @@
     } catch {}
     setStudioMode(initialStudioMode === "product" ? "product" : "free");
   }
+
+  window.ORCAH_UX_API = {
+    getState() {
+      return JSON.parse(JSON.stringify(state));
+    },
+    replaceState(nextState) {
+      suppressSharedEvents = true;
+      state = nextState && typeof nextState === "object" ? { ...blankState(), ...nextState } : blankState();
+      localStorage.setItem(UX_KEY, JSON.stringify(state));
+      renderAll();
+      suppressSharedEvents = false;
+    }
+  };
 
   wire();
 })();

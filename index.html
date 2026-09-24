@@ -18,7 +18,12 @@
       </div>
     </div>
 
-    <div class="topbar-search">
+    <nav class="view-tabs" aria-label="Área de trabalho">
+      <button class="view-tab active" type="button" data-view="kanban">Kanban</button>
+      <button class="view-tab" type="button" data-view="mindmap">Mapa mental</button>
+    </nav>
+
+    <div class="topbar-search" id="kanbanSearch">
       <input id="searchInput" type="search" placeholder="Buscar tarefa..." autocomplete="off">
     </div>
 
@@ -46,7 +51,7 @@
     </div>
   </header>
 
-  <main class="workspace">
+  <main class="workspace" id="kanbanView">
     <section class="board-header">
       <div>
         <h1>Roadmap</h1>
@@ -56,6 +61,73 @@
     </section>
 
     <section id="board" class="board" aria-label="Kanban ORÇAH"></section>
+  </main>
+
+  <main class="mindmap-view" id="mindmapView" hidden>
+    <aside class="mind-sidebar">
+      <section>
+        <span class="mind-label">FERRAMENTAS</span>
+        <div class="mind-tools">
+          <button class="mind-tool active" type="button" data-mind-tool="select">Selecionar</button>
+          <button class="mind-tool" type="button" data-mind-tool="hand">Mover</button>
+          <button class="mind-tool" type="button" data-mind-tool="draw">Lápis</button>
+          <button class="mind-tool" type="button" data-mind-tool="note">Caixa</button>
+          <button class="mind-tool" type="button" data-mind-tool="text">Texto</button>
+          <button class="mind-tool" type="button" data-mind-tool="frame">Frame</button>
+          <button class="mind-tool" type="button" data-mind-tool="connector">Conectar</button>
+          <button class="mind-tool" type="button" id="mindImageButton">Imagem</button>
+          <input id="mindImageInput" type="file" accept="image/*" hidden>
+        </div>
+      </section>
+
+      <section>
+        <div class="mind-section-head">
+          <span class="mind-label">TEMPLATES</span>
+          <span class="mind-hint">Clique para inserir</span>
+        </div>
+        <div class="template-list">
+          <button class="template-item" type="button" data-template="login"><strong>Login</strong><span>Autenticação simples</span></button>
+          <button class="template-item" type="button" data-template="dashboard"><strong>Dashboard</strong><span>Sidebar + indicadores</span></button>
+          <button class="template-item" type="button" data-template="list"><strong>Lista</strong><span>Tabela com filtros</span></button>
+          <button class="template-item" type="button" data-template="form"><strong>Formulário</strong><span>Campos + ação principal</span></button>
+          <button class="template-item" type="button" data-template="client"><strong>Cliente</strong><span>Perfil + histórico</span></button>
+          <button class="template-item" type="button" data-template="budget"><strong>Orçamento</strong><span>Editor + resumo</span></button>
+          <button class="template-item" type="button" data-template="public"><strong>Página pública</strong><span>Resumo + aprovação</span></button>
+          <button class="template-item" type="button" data-template="mobile"><strong>Mobile</strong><span>Tela de celular</span></button>
+        </div>
+      </section>
+
+      <section class="mind-sidebar-actions">
+        <button class="button button-ghost" id="mindExportBtn" type="button">Exportar mapa</button>
+        <button class="button button-danger" id="mindClearBtn" type="button">Limpar mapa</button>
+      </section>
+    </aside>
+
+    <section class="mind-stage">
+      <header class="mind-stage-head">
+        <div>
+          <h1>Mapa mental</h1>
+          <p>Desenhe ideias, fluxos e telas do ORÇAH.</p>
+        </div>
+        <div class="mind-zoom">
+          <button type="button" id="zoomOutBtn">−</button>
+          <span id="zoomLabel">100%</span>
+          <button type="button" id="zoomInBtn">+</button>
+          <button type="button" id="zoomResetBtn">Centralizar</button>
+        </div>
+      </header>
+
+      <div class="mind-viewport" id="mindViewport" tabindex="0">
+        <div class="mind-world" id="mindWorld">
+          <svg class="mind-svg" id="mindSvg" viewBox="0 0 10000 7000" preserveAspectRatio="none"></svg>
+          <div class="mind-elements" id="mindElements"></div>
+        </div>
+        <div class="mind-empty" id="mindEmpty">
+          <strong>Comece pelo que está na sua cabeça.</strong>
+          <span>Use Lápis para rabiscar, Caixa para organizar ou escolha um template de tela.</span>
+        </div>
+      </div>
+    </section>
   </main>
 
   <div id="cardModal" class="modal-backdrop" hidden>

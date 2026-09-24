@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#07110d" />
+  <meta name="description" content="Operação ORÇAH — Kanban de execução para Adriel e Cesar." />
+  <title>Operação ORÇAH — Kanban</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">O</div>
+      <div>
+        <strong>OPERAÇÃO ORÇAH</strong>
+        <span>Centro de comando · Adriel + Cesar</span>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn btn-ghost" id="exportBtn" type="button">Exportar</button>
+      <button class="btn btn-ghost" id="importBtn" type="button">Importar</button>
+      <button class="btn btn-primary" id="newCardBtn" type="button">+ Nova tarefa</button>
+      <input type="file" id="importFile" accept="application/json" hidden />
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="mission-panel">
+      <div class="mission-copy">
+        <div class="eyebrow"><span class="live-dot"></span> MISSÃO PRINCIPAL</div>
+        <h1>Levar o ORÇAH de “bom produto” para <em>produto pronto para vender.</em></h1>
+        <p>
+          Resolver produção, fechar os fluxos quebrados, deixar aquisição e comunicação profissionais
+          e preparar a base das próximas features sem perder velocidade.
+        </p>
+      </div>
+
+      <div class="mission-meter">
+        <div class="meter-head">
+          <span>Progresso da operação</span>
+          <strong id="missionPercent">0%</strong>
+        </div>
+        <div class="meter-track"><div class="meter-fill" id="missionFill"></div></div>
+        <div class="meter-foot">
+          <span id="missionDone">0 pts concluídos</span>
+          <span id="missionTotal">0 pts totais</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-grid" aria-label="Resumo da operação">
+      <article class="stat-card">
+        <span class="stat-label">Pontos restantes</span>
+        <strong id="statRemaining">0</strong>
+        <small>complexidade ainda aberta</small>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Em execução</span>
+        <strong id="statDoing">0</strong>
+        <small>tarefas em andamento</small>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Críticas</span>
+        <strong id="statCritical">0</strong>
+        <small>prioridade máxima aberta</small>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Concluídas</span>
+        <strong id="statDone">0</strong>
+        <small>blocos entregues</small>
+      </article>
+      <article class="stat-card dev-stat">
+        <span class="dev-avatar adriel">A</span>
+        <div>
+          <span class="stat-label">Adriel</span>
+          <strong id="statAdriel">0 pts</strong>
+        </div>
+      </article>
+      <article class="stat-card dev-stat">
+        <span class="dev-avatar cesar">C</span>
+        <div>
+          <span class="stat-label">Cesar</span>
+          <strong id="statCesar">0 pts</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="toolbar">
+      <div class="search-wrap">
+        <span aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" placeholder="Buscar tarefa, frente, checklist..." autocomplete="off" />
+      </div>
+
+      <div class="filters">
+        <select id="assigneeFilter" aria-label="Filtrar por responsável">
+          <option value="all">Todos os devs</option>
+          <option value="Adriel">Adriel</option>
+          <option value="Cesar">Cesar</option>
+        </select>
+
+        <select id="priorityFilter" aria-label="Filtrar por prioridade">
+          <option value="all">Todas prioridades</option>
+          <option value="critical">Crítica</option>
+          <option value="high">Alta</option>
+          <option value="medium">Média</option>
+          <option value="low">Baixa</option>
+        </select>
+
+        <button class="btn btn-ghost compact" id="resetFiltersBtn" type="button">Limpar filtros</button>
+      </div>
+    </section>
+
+    <section class="legend" aria-label="Legenda">
+      <span><i class="priority-dot critical"></i> Crítica</span>
+      <span><i class="priority-dot high"></i> Alta</span>
+      <span><i class="priority-dot medium"></i> Média</span>
+      <span><i class="priority-dot low"></i> Baixa</span>
+      <span class="legend-help">Arraste os cards entre as colunas · Clique para abrir detalhes</span>
+    </section>
+
+    <section class="board" id="board" aria-label="Kanban ORÇAH"></section>
+  </main>
+
+  <div class="modal-backdrop" id="cardModal" hidden>
+    <section class="modal card-modal" role="dialog" aria-modal="true" aria-labelledby="cardModalTitle">
+      <header class="modal-header">
+        <div>
+          <div class="eyebrow" id="modalEpic">TAREFA</div>
+          <h2 id="cardModalTitle">Detalhes da tarefa</h2>
+        </div>
+        <button class="icon-btn" id="closeCardModal" type="button" aria-label="Fechar">×</button>
+      </header>
+
+      <div class="modal-body">
+        <div class="detail-grid">
+          <label>
+            <span>Título</span>
+            <input id="editTitle" type="text" />
+          </label>
+          <label>
+            <span>Frente</span>
+            <input id="editEpic" type="text" />
+          </label>
+          <label>
+            <span>Responsável</span>
+            <select id="editAssignee">
+              <option>Adriel</option>
+              <option>Cesar</option>
+            </select>
+          </label>
+          <label>
+            <span>Prioridade</span>
+            <select id="editPriority">
+              <option value="critical">Crítica</option>
+              <option value="high">Alta</option>
+              <option value="medium">Média</option>
+              <option value="low">Baixa</option>
+            </select>
+          </label>
+          <label>
+            <span>Pontos</span>
+            <select id="editPoints">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="5">5</option>
+              <option value="8">8</option>
+              <option value="13">13</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="editStatus">
+              <option value="backlog">Backlog</option>
+              <option value="planned">Planejado</option>
+              <option value="doing">Em andamento</option>
+              <option value="review">Revisão</option>
+              <option value="done">Concluído</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="stack-label">
+          <span>Objetivo / definição de pronto</span>
+          <textarea id="editDescription" rows="4"></textarea>
+        </label>
+
+        <section class="checklist-section">
+          <div class="section-title-row">
+            <div>
+              <span class="section-kicker">EXECUÇÃO</span>
+              <h3>Checklist</h3>
+            </div>
+            <button class="btn btn-ghost compact" id="addChecklistBtn" type="button">+ Item</button>
+          </div>
+          <div id="checklistContainer" class="checklist-container"></div>
+        </section>
+
+        <label class="stack-label">
+          <span>Notas gerais</span>
+          <textarea id="editNotes" rows="3" placeholder="Decisões, links, bloqueios, handoff..."></textarea>
+        </label>
+      </div>
+
+      <footer class="modal-footer">
+        <button class="btn btn-danger-ghost" id="deleteCardBtn" type="button">Excluir</button>
+        <div class="footer-right">
+          <button class="btn btn-ghost" id="saveCardBtn" type="button">Salvar alterações</button>
+          <button class="btn btn-success" id="completeCardBtn" type="button">✓ Concluído</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="newCardModal" hidden>
+    <section class="modal small-modal" role="dialog" aria-modal="true" aria-labelledby="newCardTitle">
+      <header class="modal-header">
+        <div>
+          <div class="eyebrow">NOVA ENTREGA</div>
+          <h2 id="newCardTitle">Criar tarefa</h2>
+        </div>
+        <button class="icon-btn" id="closeNewCardModal" type="button" aria-label="Fechar">×</button>
+      </header>
+
+      <form id="newCardForm" class="modal-body">
+        <label class="stack-label">
+          <span>Título</span>
+          <input name="title" required placeholder="Ex.: Refazer integração do Instagram" />
+        </label>
+        <div class="detail-grid">
+          <label>
+            <span>Frente</span>
+            <input name="epic" required placeholder="Ex.: Aquisição" />
+          </label>
+          <label>
+            <span>Responsável</span>
+            <select name="assignee"><option>Adriel</option><option>Cesar</option></select>
+          </label>
+          <label>
+            <span>Prioridade</span>
+            <select name="priority">
+              <option value="critical">Crítica</option>
+              <option value="high">Alta</option>
+              <option value="medium" selected>Média</option>
+              <option value="low">Baixa</option>
+            </select>
+          </label>
+          <label>
+            <span>Pontos</span>
+            <select name="points">
+              <option>1</option><option>2</option><option selected>3</option><option>5</option><option>8</option><option>13</option>
+            </select>
+          </label>
+          <label>
+            <span>Status inicial</span>
+            <select name="status">
+              <option value="backlog">Backlog</option>
+              <option value="planned" selected>Planejado</option>
+              <option value="doing">Em andamento</option>
+            </select>
+          </label>
+        </div>
+        <label class="stack-label">
+          <span>Objetivo / definição de pronto</span>
+          <textarea name="description" rows="4" required></textarea>
+        </label>
+      </form>
+
+      <footer class="modal-footer">
+        <span></span>
+        <div class="footer-right">
+          <button class="btn btn-ghost" id="cancelNewCardBtn" type="button">Cancelar</button>
+          <button class="btn btn-primary" type="submit" form="newCardForm">Criar tarefa</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <template id="checklistItemTemplate">
+    <article class="check-item">
+      <div class="check-main">
+        <button class="check-toggle" type="button" aria-label="Marcar item"></button>
+        <input class="check-text" type="text" />
+        <button class="tiny-icon remove-check" type="button" aria-label="Excluir item">×</button>
+      </div>
+      <div class="comment-thread"></div>
+      <div class="comment-composer">
+        <input class="comment-input" type="text" placeholder="Comentar neste item..." />
+        <button class="comment-send" type="button">Enviar</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>

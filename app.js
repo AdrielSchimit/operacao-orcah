@@ -400,6 +400,7 @@
     return initial;
   }
 
+  let suppressSharedEvents = false;
   let cards = loadCards();
   let activeCardId = null;
   let workingCard = null;
@@ -410,6 +411,9 @@
 
   function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+    if (!suppressSharedEvents) {
+      window.dispatchEvent(new CustomEvent("orcah:shared-change", { detail: { document: "kanban" } }));
+    }
   }
 
   function escapeHTML(value = "") {
@@ -1020,6 +1024,9 @@
 
   function persistMind() {
     localStorage.setItem(MIND_KEY, JSON.stringify(mindState));
+    if (!suppressSharedEvents) {
+      window.dispatchEvent(new CustomEvent("orcah:shared-change", { detail: { document: "mindmap" } }));
+    }
   }
 
   function setView(view) {
@@ -1054,9 +1061,10 @@
     });
     const viewport = $("#mindViewport");
     if (!viewport) return;
-    viewport.classList.remove("tool-hand","tool-draw");
+    viewport.classList.remove("tool-hand","tool-draw","tool-eraser");
     if (tool === "hand") viewport.classList.add("tool-hand");
     if (tool === "draw") viewport.classList.add("tool-draw");
+    if (tool === "eraser") viewport.classList.add("tool-eraser");
   }
 
   function applyMindTransform() {
@@ -1235,6 +1243,10 @@
       node.addEventListener("pointerdown", event => startMindNodePointer(event, element.id));
       node.addEventListener("click", event => {
         event.stopPropagation();
+        if (mindTool === "eraser") {
+          deleteMindElement(element.id);
+          return;
+        }
         if (mindTool === "connector") {
           handleConnectorClick(element.id);
           return;
@@ -1339,6 +1351,41 @@
     applyMindTransform();
   }
 
+  function eraseMindAt(clientX, clientY) {
+    const point = worldPoint(clientX, clientY);
+    let erased = false;
+
+    const nearDrawing = drawing => {
+      const nums = String(drawing.d || "").match(/-?\d+(?:\.\d+)?/g)?.map(Number) || [];
+      for (let i = 0; i + 1 < nums.length; i += 2) {
+        const dx = nums[i] - point.x;
+        const dy = nums[i + 1] - point.y;
+        if (Math.hypot(dx, dy) <= 22 / mindState.zoom) return true;
+      }
+      return false;
+    };
+
+    const beforeDrawings = mindState.drawings.length;
+    mindState.drawings = mindState.drawings.filter(drawing => !nearDrawing(drawing));
+    erased = erased || beforeDrawings !== mindState.drawings.length;
+
+    const hitElement = mindState.elements.find(element =>
+      point.x >= element.x && point.x <= element.x + element.w &&
+      point.y >= element.y && point.y <= element.y + element.h
+    );
+    if (hitElement) {
+      mindState.elements = mindState.elements.filter(element => element.id !== hitElement.id);
+      mindState.connectors = mindState.connectors.filter(item => item.from !== hitElement.id && item.to !== hitElement.id);
+      erased = true;
+    }
+
+    if (erased) {
+      persistMind();
+      renderMind();
+    }
+    return erased;
+  }
+
   function mindPointerDown(event) {
     if (event.target !== $("#mindViewport") && event.target !== $("#mindWorld") && event.target !== $("#mindElements")) return;
     if (event.button === 1 || mindTool === "hand") {
@@ -1359,6 +1406,13 @@
     }
 
     if (event.button !== 0) return;
+
+    if (mindTool === "eraser") {
+      eraseMindAt(event.clientX, event.clientY);
+      mindInteraction = { type: "erase" };
+      event.preventDefault();
+      return;
+    }
 
     selectedMindId = null;
     if (mindTool === "note") addMindElement("note", { x:worldPoint(event.clientX,event.clientY).x - 110, y:worldPoint(event.clientX,event.clientY).y - 60 });
@@ -1394,6 +1448,11 @@
       element.w = Math.max(80, Math.round(mindInteraction.originW + point.x - mindInteraction.startX));
       element.h = Math.max(40, Math.round(mindInteraction.originH + point.y - mindInteraction.startY));
       renderMind();
+      return;
+    }
+
+    if (mindInteraction.type === "erase") {
+      eraseMindAt(event.clientX, event.clientY);
       return;
     }
 
@@ -1564,9 +1623,33 @@
     },
     getCards() {
       return JSON.parse(JSON.stringify(cards));
+    },
+    replaceCards(nextCards) {
+      suppressSharedEvents = true;
+      cards = (Array.isArray(nextCards) ? nextCards : []).map(sanitizeCard);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+      renderBoard();
+      suppressSharedEvents = false;
+    },
+    getMindState() {
+      return JSON.parse(JSON.stringify(mindState));
+    },
+    replaceMindState(nextState) {
+      suppressSharedEvents = true;
+      const safe = nextState && typeof nextState === "object" ? nextState : {};
+      mindState = {
+        zoom: Number(safe.zoom || 1),
+        panX: Number(safe.panX ?? 120),
+        panY: Number(safe.panY ?? 80),
+        elements: Array.isArray(safe.elements) ? safe.elements : [],
+        connectors: Array.isArray(safe.connectors) ? safe.connectors : [],
+        drawings: Array.isArray(safe.drawings) ? safe.drawings : []
+      };
+      localStorage.setItem(MIND_KEY, JSON.stringify(mindState));
+      renderMind();
+      suppressSharedEvents = false;
     }
-  };
-
+  }
   wireEvents();
   renderBoard();
   renderMind();

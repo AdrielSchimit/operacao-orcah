@@ -125,6 +125,21 @@
     }
   }
 
+  async function readGithubSources(snapshot) {
+    const paths = [...new Set(snapshot.screens.flatMap(screen => screen.sourcePaths || []))];
+    const settled = await Promise.allSettled(paths.map(async path => {
+      const url = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/${path}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(path);
+      return [path, await response.text()];
+    }));
+    return new Map(
+      settled
+        .filter(result => result.status === "fulfilled")
+        .map(result => result.value)
+    );
+  }
+
   async function importSnapshot() {
     const snapshot = window.ORCAH_UX_SNAPSHOT;
     if (!snapshot?.screens?.length) {
@@ -141,11 +156,17 @@
       }
     });
 
-    const latest = await latestGithubCommit();
-    const sourceCommit = latest || snapshot.commit;
+    const [latest, sources] = await Promise.all([
+      latestGithubCommit(),
+      readGithubSources(snapshot)
+    ]);
+    const snapshotMatchesLatest = !latest || latest === snapshot.commit;
+    const sourceCommit = snapshotMatchesLatest ? (latest || snapshot.commit) : snapshot.commit;
 
     const proposalFrames = state.frames.filter(frame => frame.version !== "Atual");
-    const imported = snapshot.screens.map((screen, index) => sanitizeFrame({
+    const imported = snapshot.screens
+      .filter(screen => !sources.size || (screen.sourcePaths || []).some(path => sources.has(path)))
+      .map((screen, index) => sanitizeFrame({
       ...clone(screen),
       id: `current_${screen.id}`,
       sourceScreenId: screen.id,
@@ -159,6 +180,8 @@
 
     state.frames = [...imported, ...proposalFrames];
     state.importedCommit = sourceCommit || snapshot.commit;
+    state.githubLatestCommit = latest || "";
+    state.sourceFilesRead = sources.size;
     state.importedAt = new Date().toISOString();
     state.selectedFrameId = imported[0]?.id || null;
     state.selectedBlockId = null;
@@ -177,9 +200,9 @@
     });
 
     if (latest && latest !== snapshot.commit) {
-      notify(`GitHub está em ${latest.slice(0,7)}. Frames atualizados e marcados com esse commit.`);
+      notify(`GitHub mudou para ${latest.slice(0,7)}. Mantive o estado Atual no snapshot verificado ${snapshot.commit.slice(0,7)} para não inventar UX; ${sources.size} arquivos foram lidos.`);
     } else {
-      notify(`UX atual importada do commit ${state.importedCommit.slice(0,7)}.`);
+      notify(`${imported.length} telas importadas · ${sources.size} arquivos lidos · commit ${state.importedCommit.slice(0,7)}.`);
     }
   }
 
@@ -541,7 +564,7 @@
       meta.textContent = "Estado atual ainda não importado.";
       return;
     }
-    meta.textContent = `GitHub ORÇAH · main · ${state.importedCommit.slice(0,7)} · ${new Date(state.importedAt).toLocaleString("pt-BR")}`;
+    meta.textContent = `GitHub ORÇAH · main · ${state.importedCommit.slice(0,7)} · ${state.sourceFilesRead || 0} arquivos lidos · ${new Date(state.importedAt).toLocaleString("pt-BR")}`;
   }
 
   function renderScreenList() {

@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = "operacao-orcah-kanban-v3";
   const MIND_KEY = "operacao-orcah-mindmap-v1";
+  const UI_STATE_KEY = "operacao-orcah-ui-state-v1";
   const LEGACY_KEYS = ["operacao-orcah-board-v1"];
 
   const COLUMNS = [
@@ -1023,6 +1024,10 @@
 
   function setView(view) {
     currentView = view;
+    try {
+      const current = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}");
+      localStorage.setItem(UI_STATE_KEY, JSON.stringify({ ...current, mainView: view }));
+    } catch {}
     const isKanban = view === "kanban";
     $("#kanbanView").hidden = !isKanban;
     $("#mindmapView").hidden = isKanban;
@@ -1565,5 +1570,9 @@
   wireEvents();
   renderBoard();
   renderMind();
-  setView("kanban");
+  let initialView = "kanban";
+  try {
+    initialView = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}").mainView || "kanban";
+  } catch {}
+  setView(initialView === "mindmap" ? "mindmap" : "kanban");
 })();

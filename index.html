@@ -65,6 +65,7 @@
 
   <main class="mindmap-view" id="mindmapView" hidden>
     <aside class="mind-sidebar">
+      <div id="freeMindSidebar">
       <section>
         <span class="mind-label">FERRAMENTAS</span>
         <div class="mind-tools">
@@ -101,19 +102,112 @@
         <button class="button button-ghost" id="mindExportBtn" type="button">Exportar mapa</button>
         <button class="button button-danger" id="mindClearBtn" type="button">Limpar mapa</button>
       </section>
+      </div>
+
+      <div id="uxSidebar" class="ux-sidebar-content" hidden>
+        <section class="ux-import-box">
+          <span class="mind-label">PRODUTO ORÇAH</span>
+          <button class="button button-primary ux-import-button" id="uxImportBtn" type="button">Importar / atualizar UX do GitHub</button>
+          <p id="uxImportMeta">Estado atual ainda não importado.</p>
+        </section>
+
+        <section>
+          <div class="mind-section-head">
+            <span class="mind-label">TELAS DO ORÇAH</span>
+            <span class="mind-hint" id="uxScreenCount">0 telas</span>
+          </div>
+          <div class="ux-screen-list" id="uxScreenList"></div>
+        </section>
+
+        <section>
+          <div class="mind-section-head">
+            <span class="mind-label">COMPONENTES</span>
+            <span class="mind-hint">Inserir no frame</span>
+          </div>
+          <div class="ux-component-groups" id="uxComponentGroups">
+            <details open>
+              <summary>Básicos</summary>
+              <div>
+                <button type="button" data-ux-component="TÍTULO">Título</button>
+                <button type="button" data-ux-component="TEXTO">Texto</button>
+                <button type="button" data-ux-component="BOTÃO">Botão</button>
+                <button type="button" data-ux-component="CARD">Card</button>
+                <button type="button" data-ux-component="SEÇÃO">Seção</button>
+                <button type="button" data-ux-component="DIVISOR">Divisor</button>
+              </div>
+            </details>
+            <details>
+              <summary>Formulários</summary>
+              <div>
+                <button type="button" data-ux-component="INPUT">Input</button>
+                <button type="button" data-ux-component="SELECT">Select</button>
+                <button type="button" data-ux-component="TEXTAREA">Textarea</button>
+                <button type="button" data-ux-component="CHECKBOX">Checkbox</button>
+              </div>
+            </details>
+            <details>
+              <summary>Orçamento</summary>
+              <div>
+                <button type="button" data-ux-component="ITEM">Item</button>
+                <button type="button" data-ux-component="SUBTOTAL">Subtotal</button>
+                <button type="button" data-ux-component="TOTAL">Total</button>
+                <button type="button" data-ux-component="DESCONTO">Desconto</button>
+              </div>
+            </details>
+            <details>
+              <summary>Pagamento</summary>
+              <div>
+                <button type="button" data-ux-component="FORMA DE PAGAMENTO">Forma de pagamento</button>
+                <button type="button" data-ux-component="PIX">Pix</button>
+                <button type="button" data-ux-component="DINHEIRO">Dinheiro</button>
+                <button type="button" data-ux-component="CARTÃO">Cartão</button>
+                <button type="button" data-ux-component="PARCELAMENTO">Parcelamento</button>
+              </div>
+            </details>
+            <details>
+              <summary>Cliente e contato</summary>
+              <div>
+                <button type="button" data-ux-component="LISTA">Lista</button>
+                <button type="button" data-ux-component="WHATSAPP">WhatsApp</button>
+                <button type="button" data-ux-component="IMAGEM">Imagem</button>
+              </div>
+            </details>
+            <details>
+              <summary>Navegação e feedback</summary>
+              <div>
+                <button type="button" data-ux-component="HEADER">Header</button>
+                <button type="button" data-ux-component="NAVBAR">Navbar</button>
+                <button type="button" data-ux-component="MENU">Menu</button>
+                <button type="button" data-ux-component="ALERTA">Alerta</button>
+                <button type="button" data-ux-component="EMPTY STATE">Empty state</button>
+                <button type="button" data-ux-component="MODAL">Modal</button>
+              </div>
+            </details>
+          </div>
+        </section>
+      </div>
     </aside>
 
     <section class="mind-stage">
       <header class="mind-stage-head">
-        <div>
-          <h1>Mapa mental</h1>
-          <p>Desenhe ideias, fluxos e telas do ORÇAH.</p>
+        <div class="mind-stage-title">
+          <div class="studio-mode-tabs">
+            <button class="studio-mode active" type="button" data-studio-mode="free">Livre</button>
+            <button class="studio-mode" type="button" data-studio-mode="product">Produto ORÇAH</button>
+          </div>
+          <h1 id="mindStageTitle">Mapa mental</h1>
+          <p id="mindStageSubtitle">Desenhe ideias, fluxos e telas do ORÇAH.</p>
         </div>
-        <div class="mind-zoom">
+        <div class="mind-zoom" id="freeZoom">
           <button type="button" id="zoomOutBtn">−</button>
           <span id="zoomLabel">100%</span>
           <button type="button" id="zoomInBtn">+</button>
           <button type="button" id="zoomResetBtn">Centralizar</button>
+        </div>
+        <div class="ux-toolbar-head" id="uxToolbarHead" hidden>
+          <button type="button" id="uxFlowBtn">Conectar telas</button>
+          <button type="button" id="uxCompareBtn">Comparar</button>
+          <button type="button" id="uxFullscreenBtn">Modo UX</button>
         </div>
       </header>
 
@@ -127,8 +221,41 @@
           <span>Use Lápis para rabiscar, Caixa para organizar ou escolha um template de tela.</span>
         </div>
       </div>
+
+      <div class="ux-viewport" id="uxViewport" tabindex="0" hidden>
+        <div class="ux-canvas" id="uxCanvas">
+          <svg class="ux-flow-svg" id="uxFlowSvg"></svg>
+          <div class="ux-frames" id="uxFrames"></div>
+        </div>
+        <div class="ux-empty" id="uxEmpty">
+          <strong>Importe o UX atual do ORÇAH.</strong>
+          <span>As telas reais do GitHub aparecem como frames desmontáveis em blocos.</span>
+          <button class="button button-primary" id="uxEmptyImportBtn" type="button">Importar UX do ORÇAH</button>
+        </div>
+      </div>
     </section>
+
+    <aside class="ux-inspector" id="uxInspector" hidden>
+      <div class="ux-inspector-empty" id="uxInspectorEmpty">
+        <strong>Propriedades</strong>
+        <span>Selecione um frame ou bloco.</span>
+      </div>
+      <div id="uxInspectorContent" hidden></div>
+    </aside>
   </main>
+
+  <div class="ux-compare-backdrop" id="uxCompareModal" hidden>
+    <section class="ux-compare-dialog">
+      <header>
+        <div>
+          <span class="modal-kicker">COMPARAÇÃO</span>
+          <h2 id="uxCompareTitle">Atual vs proposta</h2>
+        </div>
+        <button class="modal-close" id="uxCompareClose" type="button">×</button>
+      </header>
+      <div class="ux-compare-body" id="uxCompareBody"></div>
+    </section>
+  </div>
 
   <div id="cardModal" class="modal-backdrop" hidden>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -333,5 +460,7 @@
 
   <div id="toastRegion" class="toast-region" aria-live="polite"></div>
   <script src="./app.js"></script>
+  <script src="./ux-snapshot.js"></script>
+  <script src="./ux-studio.js"></script>
 </body>
 </html>

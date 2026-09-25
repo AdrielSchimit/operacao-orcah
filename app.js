@@ -14,6 +14,126 @@
     { key: "done", title: "Concluído", color: "#1fa463" }
   ];
 
+  const STRATEGY_CARD_ID = "orcah-norte-produto-2026";
+
+  function makeStrategyCard() {
+    return {
+      id: STRATEGY_CARD_ID,
+      variant: "strategy",
+      title: "NORTE DO PRODUTO — proposta profissional antes de novas firulas",
+      epic: "Norte do produto",
+      assignee: "Adriel",
+      priority: "critical",
+      points: 13,
+      status: "backlog",
+      description: "Transformar um preço cru em uma proposta profissional: identidade da empresa, fechamento comercial, condições de pagamento, preview, link, PDF e aprovação — sem perder a simplicidade para quem trabalha pelo celular.",
+      notes: "Este card resume o que é imprescindível antes de expandir o ORÇAH para dezenas de módulos. Usar como filtro para decidir novas features.",
+      subcards: [
+        {
+          id: "norte-fechamento",
+          title: "Fechamento comercial do orçamento",
+          assignee: "Adriel",
+          points: 5,
+          status: "planned",
+          description: "Transformar o final do orçamento em fechamento comercial claro, e não em campos de sistema.",
+          checklist: makeChecks(
+            "Desconto com escolha entre % e R$ + valor real descontado",
+            "Exibir Subtotal → Desconto → Total final",
+            "Formas aceitas: Pix, cartão, boleto, dinheiro e transferência",
+            "Condição: à vista, entrada + saldo, 2x, 3x ou personalizado",
+            "Entrada/sinal em % ou R$ com saldo restante automático",
+            "Validade da proposta, prazo de execução e observações com presets úteis"
+          )
+        },
+        {
+          id: "norte-ux-mobile",
+          title: "UX mobile radicalmente simples",
+          assignee: "Adriel",
+          points: 3,
+          status: "planned",
+          description: "O app precisa funcionar para pedreiro, pintor, eletricista, serralheiro e autônomo sem treinamento.",
+          checklist: makeChecks(
+            "Pouquíssimos campos obrigatórios",
+            "Campos avançados escondidos em Mais opções",
+            "Linguagem simples, sem termos de ERP/SaaS",
+            "Botões grandes e fáceis de tocar no celular",
+            "Fluxo principal inteiro testado primeiro no mobile"
+          )
+        },
+        {
+          id: "norte-branding",
+          title: "Branding, logos e temas de proposta",
+          assignee: "Adriel",
+          points: 5,
+          status: "backlog",
+          description: "Dar identidade profissional à empresa sem virar um Canva.",
+          checklist: makeChecks(
+            "Configurações → Identidade Visual: logo, cores, fonte e modelo",
+            "Upload de logo com preview e storage externo",
+            "Templates de logo em SVG: Minimal, Modern, Classic, Bold, Elegant e Tech",
+            "Começar com temas Clean, Modern e Premium",
+            "Gerador de logo por IA fica posterior, com 1 geração grátis por empresa"
+          )
+        },
+        {
+          id: "norte-renderer",
+          title: "Preview + Proposal Renderer único + PDF",
+          assignee: "Adriel",
+          points: 5,
+          status: "backlog",
+          description: "Preview, página pública e PDF precisam ser três saídas do mesmo documento visual.",
+          checklist: makeChecks(
+            "Preview em tempo real: é isso que meu cliente vai receber",
+            "Criar ProposalData → ProposalRenderer único",
+            "Mesmo renderer alimenta preview, página pública e PDF",
+            "Componentes: header, cliente, itens, pagamento, notas e footer",
+            "PDF respeita logo, cores, fonte, template e condições comerciais"
+          )
+        },
+        {
+          id: "norte-historico-storage",
+          title: "Snapshot, versões e assets duráveis",
+          assignee: "Adriel",
+          points: 5,
+          status: "backlog",
+          description: "Orçamentos antigos devem continuar exatamente como foram enviados.",
+          checklist: makeChecks(
+            "Estrutura própria de CompanyBranding",
+            "Salvar snapshot visual ao publicar/enviar orçamento",
+            "Aproveitar budget_versions para preservar orçamento + branding de cada versão",
+            "Assets fora do filesystem da Vercel",
+            "Separar company-assets e budget-assets por empresa/orçamento"
+          )
+        },
+        {
+          id: "norte-beta",
+          title: "Fechar MVP, beta e ordem de lançamento",
+          assignee: "Adriel",
+          points: 5,
+          status: "planned",
+          description: "Não expandir o produto antes do fluxo principal estar redondo.",
+          checklist: makeChecks(
+            "Fluxo obrigatório: Cadastro → Onboarding → Cliente → Serviço/Item → Orçamento → Proposta → Link → resposta",
+            "Beta completo com conta nova, mobile, aprovação, recusa e revisão",
+            "Colocar empresas reais para usar antes do lançamento maior",
+            "Ordem: Preview → fluxo → UX/mobile → link público → branding → logo → templates → PDF → beta → cobrança → main → domínio → produção",
+            "IA e automações entram depois do fluxo comercial estar sólido"
+          )
+        }
+      ],
+      checklist: makeChecks(
+        "Usar este card como norte para priorização",
+        "Não adicionar módulos que atrapalhem o fluxo principal do MVP"
+      )
+    };
+  }
+
+  function ensureStrategyCard(list) {
+    const existing = list.find(card => card.id === STRATEGY_CARD_ID);
+    if (existing) return { list, added: false };
+    return { list: [...list, makeStrategyCard()], added: true };
+  }
+
   const PRIORITIES = {
     critical: { label: "Crítica" },
     high: { label: "Alta" },
@@ -374,6 +494,7 @@
       status: COLUMNS.some(column => column.key === card?.status) ? card.status : "backlog",
       description: String(card?.description || ""),
       notes: String(card?.notes || ""),
+      variant: card?.variant === "strategy" ? "strategy" : "",
       subcards: Array.isArray(card?.subcards) ? card.subcards.map(sub => sanitizeSubcard(sub, assignee)) : [],
       checklist: Array.isArray(card?.checklist) ? card.checklist.map(sanitizeCheck) : []
     };
@@ -401,7 +522,8 @@
   }
 
   let suppressSharedEvents = false;
-  let cards = loadCards();
+  let cards = ensureStrategyCard(loadCards()).list.map(sanitizeCard);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
   let activeCardId = null;
   let workingCard = null;
 
@@ -545,11 +667,12 @@
 
   function renderCard(card) {
     const element = document.createElement("article");
-    element.className = "task-card";
+    element.className = `task-card${card.variant === "strategy" ? " strategy-card" : ""}`;
     element.draggable = true;
     element.dataset.id = card.id;
 
     element.innerHTML = `
+      ${card.variant === "strategy" ? '<div class="strategy-label">NORTE DO PRODUTO</div>' : ""}
       <div class="card-line">
         <span class="priority-pin ${card.priority}" title="${PRIORITIES[card.priority].label}"></span>
         <h3>${escapeHTML(card.title)}</h3>
@@ -1649,10 +1772,15 @@
     },
     replaceCards(nextCards) {
       suppressSharedEvents = true;
-      cards = (Array.isArray(nextCards) ? nextCards : []).map(sanitizeCard);
+      const incoming = (Array.isArray(nextCards) ? nextCards : []).map(sanitizeCard);
+      const ensured = ensureStrategyCard(incoming);
+      cards = ensured.list.map(sanitizeCard);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
       renderBoard();
       suppressSharedEvents = false;
+      if (ensured.added) {
+        setTimeout(() => persist(), 0);
+      }
     },
     getMindState() {
       return JSON.parse(JSON.stringify(mindState));

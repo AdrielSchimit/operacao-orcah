@@ -696,6 +696,8 @@
   let columnEditor = null;
   let columnPaletteOpen = false;
   let ignoreColumnEditorClick = false;
+  let cardTitleEditing = false;
+  let ignoreCardTitleClick = false;
 
   function beginColumnEdit(key) {
     if (columnEditor?.key === key) return;
@@ -1043,8 +1045,7 @@
     workingCard = JSON.parse(JSON.stringify(card));
 
     $("#modalEpic").textContent = workingCard.epic || "TAREFA";
-    $("#modalTitle").textContent = workingCard.title || "Detalhes da tarefa";
-    $("#editTitle").value = workingCard.title || "";
+    showCardTitle(workingCard.title || "Detalhes da tarefa");
     $("#editEpic").value = workingCard.epic || "";
     $("#editAssignee").value = workingCard.assignee || "Adriel";
     $("#editPriority").value = workingCard.priority || "medium";
@@ -1064,7 +1065,48 @@
     document.body.style.overflow = "hidden";
   }
 
+  function showCardTitle(text) {
+    const title = $("#modalTitle");
+    const input = $("#editTitle");
+    cardTitleEditing = false;
+    ignoreCardTitleClick = false;
+    if (title) {
+      title.hidden = false;
+      title.textContent = text;
+    }
+    if (input) {
+      input.hidden = true;
+      input.value = text === "Detalhes da tarefa" ? "" : text;
+    }
+  }
+
+  function beginCardTitleEdit() {
+    if (cardModal.hidden || !workingCard || cardTitleEditing) return;
+    const title = $("#modalTitle");
+    const input = $("#editTitle");
+    cardTitleEditing = true;
+    input.value = workingCard.title || "";
+    title.hidden = true;
+    input.hidden = false;
+    input.focus();
+    input.select();
+  }
+
+  function commitCardTitleEdit() {
+    if (!cardTitleEditing) return;
+    const input = $("#editTitle");
+    const next = input.value.replace(/\s+/g, " ").trim().slice(0, 240);
+    if (workingCard && next) workingCard.title = next;
+    showCardTitle(workingCard?.title || "Detalhes da tarefa");
+  }
+
+  function cancelCardTitleEdit() {
+    if (!cardTitleEditing) return;
+    showCardTitle(workingCard?.title || "Detalhes da tarefa");
+  }
+
   function closeCardModal() {
+    showCardTitle($("#modalTitle")?.textContent || "Detalhes da tarefa");
     cardModal.hidden = true;
     activeCardId = null;
     workingCard = null;
@@ -1073,7 +1115,10 @@
 
   function syncFields() {
     if (!workingCard) return;
-    workingCard.title = $("#editTitle").value.trim();
+    if (cardTitleEditing) {
+      const next = $("#editTitle").value.replace(/\s+/g, " ").trim().slice(0, 240);
+      if (next) workingCard.title = next;
+    }
     workingCard.epic = $("#editEpic").value.trim();
     workingCard.assignee = $("#editAssignee").value;
     workingCard.priority = $("#editPriority").value;
@@ -1089,9 +1134,11 @@
 
     if (!workingCard.title) {
       toast("Informe um título para a tarefa.");
-      $("#editTitle").focus();
+      if (!cardTitleEditing) beginCardTitleEdit();
+      else $("#editTitle").focus();
       return;
     }
+    if (cardTitleEditing) showCardTitle(workingCard.title);
 
     if (complete) {
       workingCard.status = "done";
@@ -1954,8 +2001,19 @@
     $("#addSubcardBtn").addEventListener("click", addSubcard);
     $("#addChecklistBtn").addEventListener("click", addChecklistItem);
 
-    $("#editTitle").addEventListener("input", event => {
-      $("#modalTitle").textContent = event.target.value || "Detalhes da tarefa";
+    $("#modalTitle").addEventListener("click", () => {
+      ignoreCardTitleClick = true;
+      beginCardTitleEdit();
+    });
+    $("#modalTitle").addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      beginCardTitleEdit();
+    });
+    $("#editTitle").addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      commitCardTitleEdit();
     });
     $("#editEpic").addEventListener("input", event => {
       $("#modalEpic").textContent = event.target.value || "TAREFA";
@@ -1987,6 +2045,12 @@
         const editingHeader = board.querySelector(".column-header.is-editing");
         if (!editingHeader?.contains(event.target)) commitColumnEdit();
       }
+      if (ignoreCardTitleClick) {
+        ignoreCardTitleClick = false;
+      } else if (cardTitleEditing) {
+        const heading = document.querySelector("#cardModal .modal-heading");
+        if (!heading?.contains(event.target)) commitCardTitleEdit();
+      }
       if (!event.target.closest(".card-menu-wrap") && !event.target.closest("#topMenu") && !event.target.closest("#moreButton")) closeMenus();
     });
 
@@ -2012,6 +2076,11 @@
       if (columnEditor) {
         event.preventDefault();
         cancelColumnEdit();
+        return;
+      }
+      if (cardTitleEditing) {
+        event.preventDefault();
+        cancelCardTitleEdit();
         return;
       }
       closeMenus();

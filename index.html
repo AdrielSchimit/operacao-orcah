@@ -287,20 +287,17 @@
   <div id="cardModal" class="modal-backdrop" hidden>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <header class="modal-header">
-        <div>
+        <div class="modal-heading">
           <span class="modal-kicker" id="modalEpic">TAREFA</span>
-          <h2 id="modalTitle">Detalhes da tarefa</h2>
+          <h2 id="modalTitle" class="modal-title" tabindex="0" title="Clique para renomear">Detalhes da tarefa</h2>
+          <input id="editTitle" class="modal-title-input" type="text" maxlength="240" hidden autocomplete="off" spellcheck="false" aria-label="Título da tarefa">
         </div>
         <button class="modal-close" id="closeCardModal" type="button" aria-label="Fechar">×</button>
       </header>
 
       <div class="modal-body">
         <section class="form-section compact-task-form">
-          <div class="form-grid compact-primary-grid">
-            <label class="wide">
-              <span>Título</span>
-              <input id="editTitle" type="text">
-            </label>
+          <div class="form-grid compact-primary-grid compact-card-meta">
             <label>
               <span>Responsável</span>
               <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>

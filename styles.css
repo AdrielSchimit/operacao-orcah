@@ -146,7 +146,17 @@ button{cursor:pointer}
 .modal-small{width:min(620px,100%)}
 .modal-header{display:flex;justify-content:space-between;gap:16px;padding:16px 18px 13px;border-bottom:1px solid var(--line)}
 .modal-kicker{display:block;color:var(--muted);font-size:8px;letter-spacing:.1em;font-weight:700}
-.modal-header h2{margin:4px 0 0;font-size:18px}
+.modal-heading{min-width:0;flex:1}
+.modal-title{
+  width:fit-content;max-width:100%;margin:4px 0 0;padding:0 0 1px;border-bottom:1px solid transparent;
+  font-size:18px;line-height:1.25;font-weight:700;cursor:pointer
+}
+.modal-title:hover,.modal-title:focus-visible{border-bottom-color:#e1e6e2;outline:none}
+.modal-title-input{
+  display:block;width:100%;margin:4px 0 0;padding:0 0 1px;border:0;border-bottom:1px solid #9fcdb4;border-radius:0;
+  background:transparent;font-size:18px;line-height:1.25;font-weight:700;color:inherit;outline:none
+}
+.modal-title[hidden],.modal-title-input[hidden]{display:none}
 .modal-close{width:30px;height:30px;border:0;border-radius:7px;background:#fff;color:#8d948f;font-size:19px}
 .modal-close:hover{background:#f5f6f5}
 .modal-body{overflow:auto;padding:16px 18px 18px}
@@ -797,6 +807,7 @@ body.ux-block-dragging{
 .compact-details[open]>summary{border-bottom:1px solid var(--line);background:#fff}
 .compact-details>.form-grid,.compact-details>.field{margin:9px}
 .compact-primary-grid{grid-template-columns:minmax(0,2fr) minmax(120px,.65fr) minmax(120px,.65fr)}
+.compact-card-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
 .compact-new-task .compact-primary-grid{grid-template-columns:minmax(0,2fr) minmax(140px,.7fr)}
 .compact-extra-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 .compact-new-task .compact-extra-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -805,7 +816,7 @@ body.ux-block-dragging{
 .task-detail-group .compact-section-title p{margin:0}
 .task-detail-group .subcards,.task-detail-group .checklist{margin:8px 10px 10px}
 @media(max-width:620px){
-  .compact-primary-grid,.compact-new-task .compact-primary-grid,.compact-extra-grid,.compact-new-task .compact-extra-grid{grid-template-columns:1fr}
+  .compact-primary-grid,.compact-new-task .compact-primary-grid,.compact-extra-grid,.compact-new-task .compact-extra-grid,.compact-card-meta{grid-template-columns:1fr}
   .compact-primary-grid .wide{grid-column:auto}
 }
 

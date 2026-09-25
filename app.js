@@ -1207,10 +1207,10 @@
     if (tagInput) tagInput.value = "";
     renderTagEditor();
     showCardTitle(workingCard.title || "Detalhes da tarefa");
+    fillStatusOptions(workingCard.status || "planned");
     $("#editAssignee").value = workingCard.assignee || "Adriel";
     $("#editPriority").value = workingCard.priority || "medium";
     $("#editPoints").value = String(workingCard.points || 3);
-    $("#editStatus").value = workingCard.status || "planned";
     $("#editDescription").value = workingCard.description || "";
     $("#editNotes").value = workingCard.notes || "";
 
@@ -1223,6 +1223,24 @@
 
     cardModal.hidden = false;
     document.body.style.overflow = "hidden";
+  }
+
+  function fillStatusOptions(status) {
+    const select = $("#editStatus");
+    if (!select) return;
+    select.innerHTML = COLUMNS.map(column => {
+      const view = columnView(column);
+      return `<option value="${column.key}">${escapeHTML(view.title)}</option>`;
+    }).join("");
+    select.value = COLUMNS.some(column => column.key === status) ? status : "planned";
+    paintCardStatus();
+  }
+
+  function paintCardStatus() {
+    const select = $("#editStatus");
+    const column = columnByKey(select?.value);
+    const color = column ? columnView(column).color : "#7863c9";
+    select?.closest(".modal-status")?.style.setProperty("color", color);
   }
 
   function showCardTitle(text) {
@@ -2180,6 +2198,7 @@
       event.preventDefault();
       commitCardTitleEdit();
     });
+    $("#editStatus").addEventListener("change", paintCardStatus);
     $("#tagDeleteCancel").addEventListener("click", closeTagDeleteConfirm);
     $("#tagDeleteOk").addEventListener("click", confirmRemoveKnownTag);
     $("#tagDeleteConfirm").addEventListener("click", event => {
@@ -2256,8 +2275,7 @@
       if (ignoreCardTitleClick) {
         ignoreCardTitleClick = false;
       } else if (cardTitleEditing) {
-        const heading = document.querySelector("#cardModal .modal-heading");
-        if (!heading?.contains(event.target)) commitCardTitleEdit();
+        if (!event.target.closest("#modalTitle") && !event.target.closest("#editTitle")) commitCardTitleEdit();
       }
       if (!event.target.closest(".card-menu-wrap") && !event.target.closest("#topMenu") && !event.target.closest("#moreButton")) closeMenus();
       if (ignoreTagMenuClose) {

@@ -289,8 +289,20 @@
       <header class="modal-header">
         <div class="modal-heading">
           <span class="modal-kicker" id="modalEpic">TAREFA</span>
-          <h2 id="modalTitle" class="modal-title" tabindex="0" title="Clique para renomear">Detalhes da tarefa</h2>
-          <input id="editTitle" class="modal-title-input" type="text" maxlength="240" hidden autocomplete="off" spellcheck="false" aria-label="Título da tarefa">
+          <div class="modal-title-line">
+            <h2 id="modalTitle" class="modal-title" tabindex="0" title="Clique para renomear">Detalhes da tarefa</h2>
+            <input id="editTitle" class="modal-title-input" type="text" maxlength="240" hidden autocomplete="off" spellcheck="false" aria-label="Título da tarefa">
+            <label class="modal-status">
+              <span aria-hidden="true">#</span>
+              <select id="editStatus" aria-label="Status">
+                <option value="backlog">Backlog</option>
+                <option value="planned">Planejado</option>
+                <option value="doing">Em andamento</option>
+                <option value="review">Revisão</option>
+                <option value="done">Concluído</option>
+              </select>
+            </label>
+          </div>
         </div>
         <button class="modal-close" id="closeCardModal" type="button" aria-label="Fechar">×</button>
       </header>
@@ -298,23 +310,6 @@
       <div class="modal-body card-layout">
         <div class="card-main">
           <section class="form-section compact-task-form">
-            <div class="form-grid compact-primary-grid compact-card-meta">
-              <label>
-                <span>Responsável</span>
-                <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>
-              </label>
-              <label>
-                <span>Status</span>
-                <select id="editStatus">
-                  <option value="backlog">Backlog</option>
-                  <option value="planned">Planejado</option>
-                  <option value="doing">Em andamento</option>
-                  <option value="review">Revisão</option>
-                  <option value="done">Concluído</option>
-                </select>
-              </label>
-            </div>
-
             <details class="compact-details">
               <summary>Mais opções</summary>
               <label class="field">
@@ -348,6 +343,10 @@
         </div>
 
         <aside class="card-side" aria-label="Detalhes da tarefa">
+          <label class="side-field">
+            <span class="side-label-keep">Resp.</span>
+            <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>
+          </label>
           <div class="side-field tag-field">
             <span>Tags</span>
             <div id="tagList" class="tag-list"></div>

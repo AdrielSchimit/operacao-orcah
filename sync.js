@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const SUPABASE_URL = "https://qpecvanlbxoxhgjkjrvc.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_B-zo-9xI5HFUAHeKbAAt0g_DLj5L5jr";
+  const SUPABASE_URL = "https://wcrqtutmzgkjaadrhren.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_DTQVuTJpvsacslfsu1Mmtw_lPoPjU1Z";
   const WORKSPACE_ID = "operacao-orcah";
   const CLIENT_KEY = "operacao-orcah-client-id-v1";
   const LAST_REV_KEY = "operacao-orcah-revisions-v1";

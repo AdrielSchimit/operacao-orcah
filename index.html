@@ -290,6 +290,7 @@
         <div class="modal-heading">
           <span class="modal-kicker" id="modalEpic">TAREFA</span>
           <div class="modal-title-line">
+            <span id="modalPriorityPin" class="priority-pin" aria-hidden="true"></span>
             <h2 id="modalTitle" class="modal-title" tabindex="0" title="Clique para renomear">Detalhes da tarefa</h2>
             <input id="editTitle" class="modal-title-input" type="text" maxlength="240" hidden autocomplete="off" spellcheck="false" aria-label="Título da tarefa">
             <label class="modal-status">
@@ -309,36 +310,30 @@
 
       <div class="modal-body card-layout">
         <div class="card-main">
-          <section class="form-section compact-task-form">
-            <details class="compact-details">
-              <summary>Mais opções</summary>
-              <label class="field">
-                <span>Definição de pronto</span>
-                <textarea id="editDescription" rows="2" placeholder="Opcional"></textarea>
-              </label>
-              <label class="field notes-field">
-                <span>Notas</span>
-                <textarea id="editNotes" rows="2" placeholder="Links, decisões ou bloqueios"></textarea>
-              </label>
-            </details>
-          </section>
-
-          <details class="detail-section compact-details task-detail-group">
-            <summary>Subcards <span id="subcardSummaryCount"></span></summary>
-            <div class="section-title compact-section-title">
-              <p>Quebre a tarefa apenas quando precisar.</p>
-              <button class="button button-ghost" id="addSubcardBtn" type="button">Adicionar</button>
+          <div class="card-note">
+            <button type="button" id="descriptionPreview" class="card-blurb-preview">Adicionar descrição</button>
+            <div id="descriptionEditor" class="card-blurb-editor" hidden>
+              <textarea id="editDescription" class="card-blurb" rows="6" placeholder="Adicionar descrição"></textarea>
+              <div class="card-blurb-actions">
+                <button type="button" class="button button-ghost" id="cancelDescriptionBtn">Cancelar</button>
+                <button type="button" class="button button-success" id="saveDescriptionBtn">Salvar</button>
+              </div>
             </div>
-            <div id="subcardsContainer" class="subcards"></div>
-          </details>
-
-          <details class="detail-section compact-details task-detail-group">
-            <summary>Checklist <span id="checklistSummaryCount"></span></summary>
-            <div class="section-title compact-section-title">
-              <p>Itens objetivos e comentários de execução.</p>
-              <button class="button button-ghost" id="addChecklistBtn" type="button">Adicionar</button>
+          </div>
+          <details class="fold" id="subtasksFold">
+            <summary>
+              <span class="fold-chevron" aria-hidden="true">›</span>
+              Subtarefas
+              <span id="subcardSummaryCount"></span>
+            </summary>
+            <div class="fold-body">
+              <div id="subcardsContainer" class="subtasks"></div>
+              <button class="fold-add" id="addSubcardBtn" type="button">+ Adicionar subtarefa</button>
+              <div id="cardCommentList" class="card-comment-list"></div>
+              <div class="card-comment-compose">
+                <input id="cardCommentInput" type="text" maxlength="500" placeholder="Comentar" autocomplete="off">
+              </div>
             </div>
-            <div id="checklistContainer" class="checklist"></div>
           </details>
         </div>
 
@@ -355,22 +350,24 @@
               <div id="tagMenu" class="tag-menu" hidden></div>
             </div>
           </div>
-          <label class="side-field">
-            <span>Prioridade</span>
-            <select id="editPriority">
-              <option value="critical">Crítica</option>
-              <option value="high">Alta</option>
-              <option value="medium">Média</option>
-              <option value="low">Baixa</option>
-            </select>
-          </label>
-          <label class="side-field">
-            <span>Pontos</span>
-            <select id="editPoints">
-              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-              <option value="5">5</option><option value="8">8</option><option value="13">13</option>
-            </select>
-          </label>
+          <div class="side-pair">
+            <label class="side-field">
+              <span>Prioridade</span>
+              <select id="editPriority">
+                <option value="critical">Crítica</option>
+                <option value="high">Alta</option>
+                <option value="medium">Média</option>
+                <option value="low">Baixa</option>
+              </select>
+            </label>
+            <label class="side-field">
+              <span>Pontos</span>
+              <select id="editPoints">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                <option value="5">5</option><option value="8">8</option><option value="13">13</option>
+              </select>
+            </label>
+          </div>
         </aside>
       </div>
 
@@ -451,25 +448,18 @@
   </div>
 
   <template id="subcardTemplate">
-    <article class="subcard">
-      <div class="subcard-head">
-        <button class="subcard-toggle" type="button" aria-label="Abrir ou fechar">›</button>
-        <input class="subcard-title" type="text" placeholder="Nome do subcard">
-        <span class="subcard-summary"></span>
-        <button class="subcard-remove remove-subcard" type="button" aria-label="Excluir">×</button>
+    <article class="subtask">
+      <div class="subtask-line">
+        <button class="subtask-check" type="button" aria-label="Concluir subtarefa"></button>
+        <div class="subtask-copy">
+          <input class="subtask-title" type="text" placeholder="Nome da subtarefa" maxlength="160">
+          <input class="subtask-subtitle" type="text" placeholder="Adicionar subtítulo" maxlength="240">
+        </div>
+        <button class="subtask-remove remove-subcard" type="button" aria-label="Excluir">×</button>
       </div>
-      <div class="subcard-body">
-        <div class="subcard-grid">
-          <label><span>Responsável</span><select class="subcard-assignee"><option>Adriel</option><option>Cesar</option></select></label>
-          <label><span>Pontos</span><select class="subcard-points"><option>1</option><option>2</option><option>3</option><option>5</option><option>8</option><option>13</option></select></label>
-          <label><span>Status</span><select class="subcard-status"><option value="backlog">Backlog</option><option value="planned">Planejado</option><option value="doing">Em andamento</option><option value="review">Revisão</option><option value="done">Concluído</option></select></label>
-        </div>
-        <label class="field compact"><span>Definição</span><textarea class="subcard-description" rows="2"></textarea></label>
-        <div class="subcard-check-title">
-          <strong>Checklist</strong>
-          <button class="text-button add-subcard-check" type="button">Adicionar item</button>
-        </div>
+      <div class="subtask-checks">
         <div class="subcard-checklist"></div>
+        <button class="fold-add add-subcard-check" type="button">+ Adicionar item</button>
       </div>
     </article>
   </template>
@@ -478,13 +468,8 @@
     <article class="check-item">
       <div class="check-main">
         <button class="check-toggle" type="button" aria-label="Marcar item"></button>
-        <input class="check-text" type="text">
+        <input class="check-text" type="text" maxlength="240">
         <button class="check-remove remove-check" type="button" aria-label="Excluir">×</button>
-      </div>
-      <div class="comment-list comment-thread"></div>
-      <div class="comment-compose">
-        <input class="comment-input" type="text" placeholder="Comentário">
-        <button class="text-button comment-send" type="button">Enviar</button>
       </div>
     </article>
   </template>

@@ -517,7 +517,13 @@
       notes: String(card?.notes || ""),
       variant: card?.variant === "strategy" ? "strategy" : "",
       subcards: Array.isArray(card?.subcards) ? card.subcards.map(sub => sanitizeSubcard(sub, assignee)) : [],
-      checklist: Array.isArray(card?.checklist) ? card.checklist.map(sanitizeCheck) : []
+      checklist: Array.isArray(card?.checklist) ? card.checklist.map(sanitizeCheck) : [],
+      comments: Array.isArray(card?.comments) ? card.comments.map(comment => ({
+        id: comment?.id || uid(),
+        text: String(comment?.text || "").trim(),
+        author: String(comment?.author || "Equipe"),
+        at: comment?.at || new Date().toISOString()
+      })).filter(comment => comment.text) : []
     };
   }
 
@@ -623,6 +629,7 @@
 
     const text = [
       card.title, card.epic, ...(card.tags || []), card.description, card.notes, card.assignee,
+      ...(card.comments || []).flatMap(comment => [comment.text, comment.author]),
       ...(card.checklist || []).flatMap(item => [item.text, ...(item.comments || []).map(comment => comment.text)]),
       ...(card.subcards || []).flatMap(sub => [
         sub.title, sub.description, sub.assignee,
@@ -713,6 +720,8 @@
   let columnPaletteOpen = false;
   let ignoreColumnEditorClick = false;
   let cardTitleEditing = false;
+  let descriptionEditing = false;
+  let descriptionSnapshot = "";
   let ignoreCardTitleClick = false;
 
   function beginColumnEdit(key) {
@@ -935,7 +944,10 @@
       ${card.variant === "strategy" ? '<div class="strategy-label">NORTE DO PRODUTO</div>' : ""}
       <div class="card-line">
         <span class="priority-pin ${card.priority}" title="${PRIORITIES[card.priority].label}"></span>
-        <h3>${escapeHTML(card.title)}</h3>
+        <div class="card-copy">
+          <h3>${escapeHTML(card.title)}</h3>
+          ${renderCardSubtitle(card)}
+        </div>
         <div class="card-menu-wrap">
           <button class="card-menu-btn" type="button" aria-label="Ações">⋮</button>
           <div class="card-menu" hidden>
@@ -993,6 +1005,20 @@
     return element;
   }
 
+  function cardText(card) {
+    const description = String(card?.description || "").trim();
+    const notes = String(card?.notes || "").trim();
+    if (!notes || description.includes(notes)) return description;
+    if (!description) return notes;
+    return `${description}\n\n${notes}`;
+  }
+
+  function renderCardSubtitle(card) {
+    const text = cardText(card).replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    return `<p class="card-subtitle" title="${escapeHTML(text)}">${escapeHTML(text)}</p>`;
+  }
+
   function renderCardTags(card) {
     const tags = cardTags(card);
     if (!tags.length) return "";
@@ -1039,6 +1065,7 @@
     copy.id = uid();
     copy.title = `${copy.title} — cópia`;
     copy.status = "planned";
+    copy.comments = (copy.comments || []).map(comment => ({ ...comment, id: uid() }));
     copy.checklist = (copy.checklist || []).map(item => ({ ...item, id: uid(), done: false, comments: [] }));
     copy.subcards = (copy.subcards || []).map(sub => ({
       ...sub,
@@ -1210,16 +1237,15 @@
     fillStatusOptions(workingCard.status || "planned");
     $("#editAssignee").value = workingCard.assignee || "Adriel";
     $("#editPriority").value = workingCard.priority || "medium";
+    paintCardPriority();
     $("#editPoints").value = String(workingCard.points || 3);
-    $("#editDescription").value = workingCard.description || "";
-    $("#editNotes").value = workingCard.notes || "";
+    $("#editDescription").value = cardText(workingCard);
+    closeDescriptionEditor(true);
 
     renderSubcardsEditor();
-    renderChecklistEditor();
-    const subCount = $("#subcardSummaryCount");
-    const checkCount = $("#checklistSummaryCount");
-    if (subCount) subCount.textContent = workingCard.subcards?.length ? `(${workingCard.subcards.length})` : "";
-    if (checkCount) checkCount.textContent = workingCard.checklist?.length ? `(${workingCard.checklist.length})` : "";
+    const commentInput = $("#cardCommentInput");
+    if (commentInput) commentInput.value = "";
+    renderCardComments();
 
     cardModal.hidden = false;
     document.body.style.overflow = "hidden";
@@ -1241,6 +1267,14 @@
     const column = columnByKey(select?.value);
     const color = column ? columnView(column).color : "#7863c9";
     select?.closest(".modal-status")?.style.setProperty("color", color);
+  }
+
+  function paintCardPriority() {
+    const pin = $("#modalPriorityPin");
+    if (!pin) return;
+    const priority = $("#editPriority")?.value || "medium";
+    pin.className = `priority-pin ${priority}`;
+    pin.title = PRIORITIES[priority]?.label || "";
   }
 
   function showCardTitle(text) {
@@ -1283,7 +1317,39 @@
     showCardTitle(workingCard?.title || "Detalhes da tarefa");
   }
 
+  function paintDescriptionPreview() {
+    const preview = $("#descriptionPreview");
+    if (!preview) return;
+    const value = $("#editDescription")?.value.trim() || "";
+    preview.textContent = value || "Adicionar descrição";
+    preview.classList.toggle("is-empty", !value);
+  }
+
+  function openDescriptionEditor() {
+    if (descriptionEditing || cardModal.hidden) return;
+    descriptionEditing = true;
+    descriptionSnapshot = $("#editDescription").value;
+    $("#descriptionPreview").hidden = true;
+    $("#descriptionEditor").hidden = false;
+    const area = $("#editDescription");
+    area.focus();
+    const end = area.value.length;
+    area.setSelectionRange(end, end);
+  }
+
+  function closeDescriptionEditor(save) {
+    const area = $("#editDescription");
+    if (area && !save) area.value = descriptionSnapshot;
+    descriptionEditing = false;
+    const editor = $("#descriptionEditor");
+    const preview = $("#descriptionPreview");
+    if (editor) editor.hidden = true;
+    if (preview) preview.hidden = false;
+    paintDescriptionPreview();
+  }
+
   function closeCardModal() {
+    closeDescriptionEditor(false);
     showCardTitle($("#modalTitle")?.textContent || "Detalhes da tarefa");
     cardModal.hidden = true;
     activeCardId = null;
@@ -1307,7 +1373,7 @@
     workingCard.points = Number($("#editPoints").value);
     workingCard.status = $("#editStatus").value;
     workingCard.description = $("#editDescription").value.trim();
-    workingCard.notes = $("#editNotes").value.trim();
+    workingCard.notes = "";
   }
 
   function saveCard({ complete = false } = {}) {
@@ -1347,42 +1413,31 @@
     if (!workingCard) return;
     if (!Array.isArray(workingCard.subcards)) workingCard.subcards = [];
 
-    if (!workingCard.subcards.length) {
-      container.innerHTML = '<div class="empty-column">Nenhum subcard. Use subcards quando a tarefa precisar ser quebrada em partes menores.</div>';
-      return;
+    const subCount = $("#subcardSummaryCount");
+    if (subCount) {
+      const done = workingCard.subcards.filter(sub => sub.status === "done").length;
+      subCount.textContent = workingCard.subcards.length ? `${done}/${workingCard.subcards.length}` : "";
     }
 
     workingCard.subcards.forEach(sub => {
       const fragment = $("#subcardTemplate").content.cloneNode(true);
-      const root = fragment.querySelector(".subcard");
-      const collapse = fragment.querySelector(".subcard-toggle");
-      const summary = fragment.querySelector(".subcard-summary");
-      const title = fragment.querySelector(".subcard-title");
-      const assignee = fragment.querySelector(".subcard-assignee");
-      const points = fragment.querySelector(".subcard-points");
-      const status = fragment.querySelector(".subcard-status");
-      const description = fragment.querySelector(".subcard-description");
+      const root = fragment.querySelector(".subtask");
+      const check = fragment.querySelector(".subtask-check");
+      const title = fragment.querySelector(".subtask-title");
+      const subtitle = fragment.querySelector(".subtask-subtitle");
       const list = fragment.querySelector(".subcard-checklist");
+      root.dataset.id = sub.id;
 
       title.value = sub.title || "";
-      assignee.value = sub.assignee || workingCard.assignee || "Adriel";
-      points.value = String(sub.points || 3);
-      status.value = sub.status || "planned";
-      description.value = sub.description || "";
+      subtitle.value = sub.description || "";
+      if (sub.status === "done") root.classList.add("done");
 
       title.addEventListener("input", () => { sub.title = title.value; });
-      assignee.addEventListener("change", () => { sub.assignee = assignee.value; });
-      points.addEventListener("change", () => { sub.points = Number(points.value); });
-      status.addEventListener("change", () => { sub.status = status.value; });
-      description.addEventListener("input", () => { sub.description = description.value; });
-
-      const refreshSubcardSummary = () => {
-        summary.textContent = `${sub.points} pts · ${sub.assignee}`;
-      };
-      refreshSubcardSummary();
-      assignee.addEventListener("change", refreshSubcardSummary);
-      points.addEventListener("change", refreshSubcardSummary);
-      collapse.addEventListener("click", () => root.classList.toggle("open"));
+      subtitle.addEventListener("input", () => { sub.description = subtitle.value; });
+      check.addEventListener("click", () => {
+        sub.status = sub.status === "done" ? "planned" : "done";
+        renderSubcardsEditor();
+      });
 
       fragment.querySelector(".remove-subcard").addEventListener("click", () => {
         workingCard.subcards = workingCard.subcards.filter(item => item.id !== sub.id);
@@ -1390,11 +1445,19 @@
       });
 
       fragment.querySelector(".add-subcard-check").addEventListener("click", () => {
-        sub.checklist.push(makeCheck("Novo item"));
+        if (!Array.isArray(sub.checklist)) sub.checklist = [];
+        sub.checklist.push(makeCheck(""));
         renderSubcardsEditor();
+        const row = $("#subcardsContainer").querySelector(`[data-id="${sub.id}"]`);
+        const fields = row?.querySelectorAll(".check-text");
+        const last = fields?.[fields.length - 1];
+        if (last) {
+          last.focus();
+          last.select();
+        }
       });
 
-      renderCheckList(sub.checklist, list, sub.assignee, () => renderSubcardsEditor());
+      renderCheckList(sub.checklist, list, () => renderSubcardsEditor());
       container.appendChild(fragment);
     });
   }
@@ -1403,40 +1466,62 @@
     if (!workingCard) return;
     if (!Array.isArray(workingCard.subcards)) workingCard.subcards = [];
     workingCard.subcards.push(makeSubcard(
-      "Novo subcard",
+      "",
       workingCard.assignee || "Adriel",
-      3,
-      "Defina o que precisa ficar pronto nesta parte.",
+      1,
+      "",
       "planned",
       []
     ));
+    const fold = $("#subtasksFold");
+    if (fold) fold.open = true;
     renderSubcardsEditor();
 
-    const subcards = $("#subcardsContainer").querySelectorAll(".subcard");
-    const last = subcards[subcards.length - 1];
-    if (last) last.classList.add("open");
-    const input = last?.querySelector(".subcard-title");
+    const rows = $("#subcardsContainer").querySelectorAll(".subtask");
+    const input = rows[rows.length - 1]?.querySelector(".subtask-title");
     if (input) {
       input.focus();
-      input.select();
     }
   }
 
-  function renderChecklistEditor() {
-    const container = $("#checklistContainer");
-    if (!workingCard) return;
-    if (!Array.isArray(workingCard.checklist)) workingCard.checklist = [];
-
-    if (!workingCard.checklist.length) {
-      container.innerHTML = '<div class="empty-column">Nenhum item no checklist geral.</div>';
-      return;
-    }
-
-    renderCheckList(workingCard.checklist, container, workingCard.assignee || "Equipe", () => renderChecklistEditor());
+  function commentAuthor() {
+    const user = window.ORCAH_ACCESS_USER;
+    if (user === "Adriel" || user === "Cesar") return user;
+    return workingCard?.assignee || "Equipe";
   }
 
-  function renderCheckList(list, container, author, rerender) {
+  function renderCardComments() {
+    const list = $("#cardCommentList");
+    if (!list || !workingCard) return;
+    if (!Array.isArray(workingCard.comments)) workingCard.comments = [];
+    list.innerHTML = "";
+    workingCard.comments.forEach(comment => {
+      const node = document.createElement("div");
+      node.className = "card-comment";
+      node.innerHTML = `<strong>${escapeHTML(comment.author || "Equipe")}</strong><p>${escapeHTML(comment.text)}</p>`;
+      list.appendChild(node);
+    });
+  }
+
+  function addCardComment() {
+    const input = $("#cardCommentInput");
+    if (!workingCard || !input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    if (!Array.isArray(workingCard.comments)) workingCard.comments = [];
+    workingCard.comments.push({
+      id: uid(),
+      text,
+      author: commentAuthor(),
+      at: new Date().toISOString()
+    });
+    input.value = "";
+    renderCardComments();
+  }
+
+  function renderCheckList(list, container, rerender) {
     container.innerHTML = "";
+    if (!Array.isArray(list)) return;
 
     list.forEach(item => {
       const fragment = $("#checkItemTemplate").content.cloneNode(true);
@@ -1444,19 +1529,9 @@
       const toggle = fragment.querySelector(".check-toggle");
       const text = fragment.querySelector(".check-text");
       const remove = fragment.querySelector(".remove-check");
-      const comments = fragment.querySelector(".comment-list");
-      const commentInput = fragment.querySelector(".comment-input");
-      const commentSend = fragment.querySelector(".comment-send");
 
       if (item.done) root.classList.add("done");
       text.value = item.text || "";
-
-      (item.comments || []).forEach(comment => {
-        const node = document.createElement("div");
-        node.className = "comment";
-        node.innerHTML = `${escapeHTML(comment.text)} <small>${escapeHTML(comment.author || "Equipe")}</small>`;
-        comments.appendChild(node);
-      });
 
       toggle.addEventListener("click", () => {
         item.done = !item.done;
@@ -1471,36 +1546,8 @@
         rerender();
       });
 
-      const addComment = () => {
-        const value = commentInput.value.trim();
-        if (!value) return;
-        if (!Array.isArray(item.comments)) item.comments = [];
-        item.comments.push({ id: uid(), text: value, author, at: new Date().toISOString() });
-        rerender();
-      };
-
-      commentSend.addEventListener("click", addComment);
-      commentInput.addEventListener("keydown", event => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          addComment();
-        }
-      });
-
       container.appendChild(fragment);
     });
-  }
-
-  function addChecklistItem() {
-    if (!workingCard) return;
-    workingCard.checklist.push(makeCheck("Novo item"));
-    renderChecklistEditor();
-    const inputs = $("#checklistContainer").querySelectorAll(".check-text");
-    const last = inputs[inputs.length - 1];
-    if (last) {
-      last.focus();
-      last.select();
-    }
   }
 
   function openNewCardModal() {
@@ -2182,7 +2229,11 @@
     $("#completeCardBtn").addEventListener("click", () => saveCard({ complete: true }));
     $("#deleteCardBtn").addEventListener("click", () => activeCardId && deleteCard(activeCardId));
     $("#addSubcardBtn").addEventListener("click", addSubcard);
-    $("#addChecklistBtn").addEventListener("click", addChecklistItem);
+    $("#cardCommentInput").addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addCardComment();
+    });
 
     $("#modalTitle").addEventListener("click", () => {
       ignoreCardTitleClick = true;
@@ -2198,7 +2249,11 @@
       event.preventDefault();
       commitCardTitleEdit();
     });
+    $("#descriptionPreview").addEventListener("click", openDescriptionEditor);
+    $("#cancelDescriptionBtn").addEventListener("click", () => closeDescriptionEditor(false));
+    $("#saveDescriptionBtn").addEventListener("click", () => closeDescriptionEditor(true));
     $("#editStatus").addEventListener("change", paintCardStatus);
+    $("#editPriority").addEventListener("change", paintCardPriority);
     $("#tagDeleteCancel").addEventListener("click", closeTagDeleteConfirm);
     $("#tagDeleteOk").addEventListener("click", confirmRemoveKnownTag);
     $("#tagDeleteConfirm").addEventListener("click", event => {
@@ -2312,6 +2367,11 @@
       if (cardTitleEditing) {
         event.preventDefault();
         cancelCardTitleEdit();
+        return;
+      }
+      if (descriptionEditing) {
+        event.preventDefault();
+        closeDescriptionEditor(false);
         return;
       }
       if (!$("#tagDeleteConfirm")?.hidden) {

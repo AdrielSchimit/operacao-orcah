@@ -487,12 +487,28 @@
     };
   }
 
+  function cardTags(card) {
+    const source = Array.isArray(card?.tags) && card.tags.length
+      ? card.tags
+      : String(card?.epic || "").split("/");
+    const tags = [];
+    source.forEach(item => {
+      const text = String(item || "").replace(/\s+/g, " ").trim().slice(0, 40);
+      if (!text || text.toLowerCase() === "geral") return;
+      if (tags.some(tag => tag.toLowerCase() === text.toLowerCase())) return;
+      tags.push(text);
+    });
+    return tags.slice(0, 6);
+  }
+
   function sanitizeCard(card) {
     const assignee = card?.assignee === "Cesar" ? "Cesar" : "Adriel";
+    const tags = cardTags(card);
     return {
       id: card?.id || uid(),
       title: String(card?.title || "Tarefa"),
-      epic: String(card?.epic || "Geral"),
+      epic: tags.length ? tags.join(" / ") : String(card?.epic || ""),
+      tags,
       assignee,
       priority: PRIORITIES[card?.priority] ? card.priority : "medium",
       points: [1,2,3,5,8,13].includes(Number(card?.points)) ? Number(card.points) : 3,
@@ -606,7 +622,7 @@
     if (!filters.search) return true;
 
     const text = [
-      card.title, card.epic, card.description, card.notes, card.assignee,
+      card.title, card.epic, ...(card.tags || []), card.description, card.notes, card.assignee,
       ...(card.checklist || []).flatMap(item => [item.text, ...(item.comments || []).map(comment => comment.text)]),
       ...(card.subcards || []).flatMap(sub => [
         sub.title, sub.description, sub.assignee,
@@ -931,9 +947,9 @@
         </div>
       </div>
       <div class="card-meta">
-        <span class="card-block" title="${escapeHTML(card.epic)}">${escapeHTML(card.epic)}</span>
+        <span class="assignee-text">${escapeHTML(card.assignee)}</span>
         <span class="card-right">
-          <span class="assignee-text">${escapeHTML(card.assignee)}</span>
+          ${renderCardTags(card)}
           <span class="points-text">${cardPoints(card)} pts</span>
         </span>
       </div>
@@ -975,6 +991,16 @@
     element.addEventListener("dragend", () => element.classList.remove("dragging"));
 
     return element;
+  }
+
+  function renderCardTags(card) {
+    const tags = cardTags(card);
+    if (!tags.length) return "";
+    const label = tags.join(" · ");
+    return `<span class="card-tags" title="${escapeHTML(label)}">
+      <svg class="tag-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 3h4.7l6.3 6.2-4.4 4.4L2.4 7.5V3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="5.2" cy="5.7" r=".8" fill="currentColor"/></svg>
+      <span>${escapeHTML(label)}</span>
+    </span>`;
   }
 
   function renderStats() {
@@ -1044,9 +1070,11 @@
     activeCardId = id;
     workingCard = JSON.parse(JSON.stringify(card));
 
-    $("#modalEpic").textContent = workingCard.epic || "TAREFA";
+    const tags = cardTags(workingCard);
+    const kicker = $("#modalEpic");
+    kicker.textContent = tags.join(" · ");
+    kicker.hidden = !tags.length;
     showCardTitle(workingCard.title || "Detalhes da tarefa");
-    $("#editEpic").value = workingCard.epic || "";
     $("#editAssignee").value = workingCard.assignee || "Adriel";
     $("#editPriority").value = workingCard.priority || "medium";
     $("#editPoints").value = String(workingCard.points || 3);
@@ -1119,7 +1147,8 @@
       const next = $("#editTitle").value.replace(/\s+/g, " ").trim().slice(0, 240);
       if (next) workingCard.title = next;
     }
-    workingCard.epic = $("#editEpic").value.trim();
+    workingCard.tags = cardTags(workingCard);
+    workingCard.epic = workingCard.tags.join(" / ");
     workingCard.assignee = $("#editAssignee").value;
     workingCard.priority = $("#editPriority").value;
     workingCard.points = Number($("#editPoints").value);
@@ -1344,7 +1373,8 @@
     const card = sanitizeCard({
       id: uid(),
       title: form.get("title"),
-      epic: String(form.get("epic") || "Geral"),
+      epic: "",
+      tags: [],
       assignee: form.get("assignee") || window.ORCAH_ACCESS_USER || "Adriel",
       priority: form.get("priority") || "medium",
       points: Number(form.get("points") || 3),
@@ -2014,9 +2044,6 @@
       if (event.key !== "Enter") return;
       event.preventDefault();
       commitCardTitleEdit();
-    });
-    $("#editEpic").addEventListener("input", event => {
-      $("#modalEpic").textContent = event.target.value || "TAREFA";
     });
 
     $("#searchInput").addEventListener("input", renderBoard);

@@ -136,8 +136,10 @@ button{cursor:pointer}
 .card-menu button:hover{background:#f5f6f5}
 .card-menu button.danger{color:var(--red)}
 .card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;padding-left:14px}
-.card-block{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px}
-.card-right{display:flex;align-items:center;gap:7px}
+.card-right{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0;flex:1}
+.card-tags{display:inline-flex;align-items:center;gap:3px;min-width:0;color:var(--muted);font-size:8px}
+.card-tags span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag-icon{width:9px;height:9px;flex:none}
 .assignee-text{color:var(--muted);font-size:8px}
 .points-text{color:#8f9791;font-size:8px;font-weight:700}
 .modal-backdrop{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:14px;background:rgba(25,31,27,.26);backdrop-filter:blur(3px)}
@@ -146,6 +148,7 @@ button{cursor:pointer}
 .modal-small{width:min(620px,100%)}
 .modal-header{display:flex;justify-content:space-between;gap:16px;padding:16px 18px 13px;border-bottom:1px solid var(--line)}
 .modal-kicker{display:block;color:var(--muted);font-size:8px;letter-spacing:.1em;font-weight:700}
+.modal-kicker[hidden]{display:none}
 .modal-heading{min-width:0;flex:1}
 .modal-title{
   width:fit-content;max-width:100%;margin:4px 0 0;padding:0 0 1px;border-bottom:1px solid transparent;
@@ -844,5 +847,5 @@ body.ux-block-dragging{
   letter-spacing:.08em;
 }
 .task-card.strategy-card h3{color:#7f2525}
-.task-card.strategy-card .card-block{color:#a75a5a}
+.task-card.strategy-card .card-tags{color:#a75a5a}
 .task-card.strategy-card .points-text{color:#9a4a4a}

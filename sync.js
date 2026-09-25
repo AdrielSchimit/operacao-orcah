@@ -26,6 +26,7 @@
   let channel = null;
   let sb = null;
   let connected = false;
+  let reconnectTimer = null;
 
   const docs = {
     kanban: {
@@ -160,7 +161,13 @@
     setStatus("online", row.updated_by ? `Atualizado por ${row.updated_by}` : "Compartilhado");
   }
 
+  function scheduleReconnect(delay = 3000) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => connect(), delay);
+  }
+
   function subscribeRealtime() {
+    if (channel) return;
     channel = sb
       .channel("orcah-ops-shared-workspace")
       .on("postgres_changes", {
@@ -178,29 +185,54 @@
           setStatus("online","Compartilhado");
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           connected = false;
-          setStatus("offline","Offline");
+          channel = null;
+          setStatus("offline","Reconectando");
+          scheduleReconnect();
         }
       });
   }
 
   async function connect() {
-    if (sb || !window.supabase?.createClient) return;
+    if (!window.supabase?.createClient) {
+      setStatus("offline","Sync indisponível");
+      scheduleReconnect(5000);
+      return;
+    }
+
+    clearTimeout(reconnectTimer);
     setStatus("syncing","Conectando");
 
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false }
-    });
-
-    try {
-      await Promise.all(Object.keys(docs).map(bootstrapDocument));
-      connected = true;
-      subscribeRealtime();
-      setStatus("online","Compartilhado");
-    } catch (error) {
-      console.error("ORÇAH sync bootstrap failed", error);
-      connected = false;
-      setStatus("offline","Somente local");
+    if (!sb) {
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
     }
+
+    const results = await Promise.allSettled(
+      Object.keys(docs).map(async key => {
+        await bootstrapDocument(key);
+        return key;
+      })
+    );
+
+    const failed = results
+      .map((result, index) => ({ result, key: Object.keys(docs)[index] }))
+      .filter(item => item.result.status === "rejected");
+
+    if (failed.length === results.length) {
+      failed.forEach(item => console.error("ORÇAH sync bootstrap failed:", item.key, item.result.reason));
+      connected = false;
+      setStatus("offline","Reconectando");
+      scheduleReconnect(4000);
+      return;
+    }
+
+    failed.forEach(item => console.error("ORÇAH sync partial bootstrap failed:", item.key, item.result.reason));
+    connected = true;
+    subscribeRealtime();
+    setStatus(failed.length ? "syncing" : "online", failed.length ? "Sync parcial" : "Compartilhado");
+
+    if (failed.length) scheduleReconnect(5000);
   }
 
   window.addEventListener("orcah:shared-change", event => {
@@ -213,8 +245,8 @@
   });
 
   window.addEventListener("online", () => {
-    if (!sb) connect();
-    else setStatus("syncing","Reconectando");
+    setStatus("syncing","Reconectando");
+    connect();
   });
   window.addEventListener("offline", () => setStatus("offline","Offline"));
 

@@ -39,6 +39,10 @@
     ux: {
       get: () => window.ORCAH_UX_API?.getState?.(),
       apply: payload => window.ORCAH_UX_API?.replaceState?.(payload)
+    },
+    columns: {
+      get: () => window.ORCAH_KANBAN_API?.getColumns?.(),
+      apply: payload => window.ORCAH_KANBAN_API?.replaceColumns?.(payload)
     }
   };
 

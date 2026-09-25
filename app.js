@@ -13,6 +13,11 @@
     { key: "review", title: "Revisão", color: "#7d63d2" },
     { key: "done", title: "Concluído", color: "#1fa463" }
   ];
+  const COLUMN_META_KEY = "operacao-orcah-columns-v1";
+  const COLUMN_PALETTE = [
+    "#95a199", "#4a7bd8", "#d38a22", "#7d63d2", "#1fa463",
+    "#d4537e", "#2a9d8f", "#c4554d", "#3d4a7a", "#8a6a3b"
+  ];
 
   const STRATEGY_CARD_ID = "orcah-norte-produto-2026";
 
@@ -612,7 +617,244 @@
     return normalize(text).includes(filters.search);
   }
 
-  function renderBoard() {
+  function columnByKey(key) {
+    return COLUMNS.find(column => column.key === key) || null;
+  }
+
+  function sanitizeColumnTitle(value, fallback) {
+    const text = String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 48);
+    return text || fallback;
+  }
+
+  function sanitizeColumnDescription(value) {
+    return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 180);
+  }
+
+  function sanitizeColumnColor(value, fallback) {
+    const raw = String(value ?? "").trim();
+    const hex = /^#([0-9a-fA-F]{6})$/.exec(raw);
+    if (hex) return `#${hex[1].toLowerCase()}`;
+    const short = /^#([0-9a-fA-F]{3})$/.exec(raw);
+    if (short) {
+      const [r, g, b] = short[1].split("");
+      return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+    }
+    return String(fallback || "#95a199").toLowerCase();
+  }
+
+  function sanitizeColumnMeta(source) {
+    const next = {};
+    if (!source || typeof source !== "object" || Array.isArray(source)) return next;
+    COLUMNS.forEach(column => {
+      const item = source[column.key];
+      if (!item || typeof item !== "object" || Array.isArray(item)) return;
+      const title = sanitizeColumnTitle(item.title, column.title);
+      const description = sanitizeColumnDescription(item.description);
+      const color = sanitizeColumnColor(item.color, column.color);
+      if (title === column.title && !description && color === column.color.toLowerCase()) return;
+      next[column.key] = { title, description, color };
+    });
+    return next;
+  }
+
+  function readColumnDocument(payload) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+    const source = payload.version === 1 && payload.columns && typeof payload.columns === "object" && !Array.isArray(payload.columns)
+      ? payload.columns
+      : payload;
+    return sanitizeColumnMeta(source);
+  }
+
+  function loadColumnMeta() {
+    try {
+      return sanitizeColumnMeta(JSON.parse(localStorage.getItem(COLUMN_META_KEY) || "{}"));
+    } catch {
+      return {};
+    }
+  }
+
+  function columnView(column) {
+    const saved = columnMeta[column.key];
+    if (!saved) return { key: column.key, title: column.title, description: "", color: column.color.toLowerCase() };
+    return { key: column.key, title: saved.title, description: saved.description, color: saved.color };
+  }
+
+  function columnDocument() {
+    return { version: 1, columns: JSON.parse(JSON.stringify(columnMeta)) };
+  }
+
+  function persistColumns() {
+    try {
+      localStorage.setItem(COLUMN_META_KEY, JSON.stringify(columnMeta));
+    } catch {}
+    if (!suppressSharedEvents) {
+      window.dispatchEvent(new CustomEvent("orcah:shared-change", { detail: { document: "columns" } }));
+    }
+  }
+
+  let columnMeta = loadColumnMeta();
+  let columnEditor = null;
+  let columnPaletteOpen = false;
+  let ignoreColumnEditorClick = false;
+
+  function beginColumnEdit(key) {
+    if (columnEditor?.key === key) return;
+    if (columnEditor) commitColumnEdit();
+    const column = columnByKey(key);
+    if (!column) return;
+    const view = columnView(column);
+    columnEditor = { key, title: view.title, description: view.description, color: view.color };
+    columnPaletteOpen = false;
+    ignoreColumnEditorClick = true;
+    renderBoard({ focusColumnEditor: true });
+  }
+
+  function cancelColumnEdit() {
+    if (!columnEditor) return;
+    columnEditor = null;
+    columnPaletteOpen = false;
+    renderBoard();
+  }
+
+  function commitColumnEdit() {
+    if (!columnEditor) return;
+    const draft = columnEditor;
+    const nameInput = board.querySelector(".column-header.is-editing .column-name-input");
+    const descriptionInput = board.querySelector(".column-header.is-editing .column-description-input");
+    if (nameInput) draft.title = nameInput.value;
+    if (descriptionInput) draft.description = descriptionInput.value;
+    const column = columnByKey(draft.key);
+    columnEditor = null;
+    columnPaletteOpen = false;
+    if (!column) {
+      renderBoard();
+      return;
+    }
+    const previous = columnView(column);
+    const next = {
+      title: sanitizeColumnTitle(draft.title, previous.title),
+      description: sanitizeColumnDescription(draft.description),
+      color: sanitizeColumnColor(draft.color, previous.color)
+    };
+    const changed = next.title !== previous.title || next.description !== previous.description || next.color !== previous.color;
+    if (!changed) {
+      renderBoard();
+      return;
+    }
+    if (next.title === column.title && !next.description && next.color === column.color.toLowerCase()) delete columnMeta[column.key];
+    else columnMeta[column.key] = next;
+    persistColumns();
+    renderBoard();
+  }
+
+  function applyColumnDraftColor(draft, color, dotButton, header) {
+    draft.color = sanitizeColumnColor(color, draft.color);
+    dotButton.style.background = draft.color;
+    header.querySelectorAll(".column-color-swatch").forEach(swatch => {
+      swatch.classList.toggle("is-active", swatch.dataset.color === draft.color);
+    });
+    const custom = header.querySelector(".column-color-custom input");
+    if (custom && custom.value !== draft.color) custom.value = draft.color;
+  }
+
+  function placeColumnPalette(anchor, pop) {
+    const rect = anchor.getBoundingClientRect();
+    const width = pop.offsetWidth || 148;
+    const left = Math.min(rect.left, window.innerWidth - width - 8);
+    pop.style.top = `${Math.round(rect.bottom + 6)}px`;
+    pop.style.left = `${Math.round(Math.max(8, left))}px`;
+  }
+
+  function renderColumnHeader(column, visibleCount, points) {
+    const view = columnView(column);
+    const editing = columnEditor?.key === column.key;
+    const header = document.createElement("header");
+    header.className = `column-header${view.description && !editing ? " has-description" : ""}${editing ? " is-editing" : ""}`;
+
+    if (!editing) {
+      header.tabIndex = 0;
+      header.setAttribute("role", "button");
+      header.setAttribute("aria-label", `Editar seção ${view.title}`);
+      header.innerHTML = `
+        <div class="column-heading">
+          <div class="column-title-wrap">
+            <span class="column-dot" style="background:${view.color}"></span>
+            <span class="column-title">${escapeHTML(view.title)}</span>
+            <span class="column-count">${visibleCount}</span>
+          </div>
+          ${view.description ? `<p class="column-description">${escapeHTML(view.description)}</p>` : ""}
+        </div>
+        <span class="column-points">${points} pts</span>
+      `;
+      const open = () => beginColumnEdit(column.key);
+      header.addEventListener("click", open);
+      header.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        open();
+      });
+      return header;
+    }
+
+    const draft = columnEditor;
+    header.innerHTML = `
+      <div class="column-edit">
+        <div class="column-edit-top">
+          <button class="column-dot-btn" type="button" aria-label="Trocar cor da seção" aria-expanded="${columnPaletteOpen ? "true" : "false"}" style="background:${draft.color}"></button>
+          <input class="column-name-input" type="text" maxlength="48" aria-label="Nome da seção" value="${escapeHTML(draft.title)}" autocomplete="off" spellcheck="false">
+          <span class="column-count">${visibleCount}</span>
+          <span class="column-points">${points} pts</span>
+        </div>
+        <input class="column-description-input" type="text" maxlength="180" aria-label="Descrição da seção" placeholder="Adicionar descrição" value="${escapeHTML(draft.description)}" autocomplete="off">
+        <div class="column-color-pop" ${columnPaletteOpen ? "" : "hidden"}>
+          ${COLUMN_PALETTE.map(color => `
+            <button class="column-color-swatch${color === draft.color ? " is-active" : ""}" type="button" data-color="${color}" style="background:${color}" aria-label="Usar cor ${color}"></button>
+          `).join("")}
+          <label class="column-color-custom">
+            <input type="color" value="${draft.color}" aria-label="Cor personalizada">
+            Personalizar
+          </label>
+        </div>
+      </div>
+    `;
+
+    const nameInput = header.querySelector(".column-name-input");
+    const descriptionInput = header.querySelector(".column-description-input");
+    const dotButton = header.querySelector(".column-dot-btn");
+    const pop = header.querySelector(".column-color-pop");
+
+    nameInput.addEventListener("input", () => { draft.title = nameInput.value; });
+    descriptionInput.addEventListener("input", () => { draft.description = descriptionInput.value; });
+    header.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      commitColumnEdit();
+    });
+    dotButton.addEventListener("click", event => {
+      event.preventDefault();
+      columnPaletteOpen = !columnPaletteOpen;
+      pop.hidden = !columnPaletteOpen;
+      dotButton.setAttribute("aria-expanded", columnPaletteOpen ? "true" : "false");
+      if (columnPaletteOpen) placeColumnPalette(dotButton, pop);
+    });
+    header.querySelectorAll(".column-color-swatch").forEach(swatch => {
+      swatch.addEventListener("click", event => {
+        event.preventDefault();
+        applyColumnDraftColor(draft, swatch.dataset.color, dotButton, header);
+        columnPaletteOpen = false;
+        pop.hidden = true;
+        dotButton.setAttribute("aria-expanded", "false");
+        nameInput.focus();
+      });
+    });
+    header.querySelector(".column-color-custom input").addEventListener("input", event => {
+      applyColumnDraftColor(draft, event.target.value, dotButton, header);
+    });
+
+    return header;
+  }
+
+  function renderBoard(options = {}) {
     const filters = getFilters();
     board.innerHTML = "";
 
@@ -623,19 +865,11 @@
 
       const section = document.createElement("section");
       section.className = "column";
-      section.innerHTML = `
-        <header class="column-header">
-          <div class="column-title-wrap">
-            <span class="column-dot" style="background:${column.color}"></span>
-            <span class="column-title">${column.title}</span>
-            <span class="column-count">${visible.length}</span>
-          </div>
-          <span class="column-points">${points} pts</span>
-        </header>
-        <div class="column-list" data-status="${column.key}"></div>
-      `;
-
-      const list = section.querySelector(".column-list");
+      section.appendChild(renderColumnHeader(column, visible.length, points));
+      const list = document.createElement("div");
+      list.className = "column-list";
+      list.dataset.status = column.key;
+      section.appendChild(list);
 
       if (!visible.length) {
         list.innerHTML = `<div class="empty-column">${all.length ? "Nenhuma tarefa com esses filtros" : "Arraste uma tarefa para cá"}</div>`;
@@ -661,6 +895,14 @@
 
       board.appendChild(section);
     });
+
+    if (options.focusColumnEditor && columnEditor) {
+      const input = board.querySelector(".column-header.is-editing .column-name-input");
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }
 
     renderStats();
   }
@@ -750,7 +992,8 @@
     }
     persist();
     renderBoard();
-    toast(`Tarefa movida para ${COLUMNS.find(column => column.key === status)?.title || status}.`);
+    const target = columnByKey(status);
+    toast(`Tarefa movida para ${target ? columnView(target).title : status}.`);
   }
 
   function moveNext(id) {
@@ -1077,7 +1320,8 @@
       product: "ORÇAH",
       version: 3,
       exportedAt: new Date().toISOString(),
-      cards
+      cards,
+      columns: columnDocument()
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1101,6 +1345,15 @@
         if (!Array.isArray(list)) throw new Error("Formato inválido");
         cards = list.map(sanitizeCard);
         persist();
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.columns) {
+          const nextColumns = readColumnDocument(parsed.columns);
+          if (nextColumns) {
+            columnMeta = nextColumns;
+            columnEditor = null;
+            columnPaletteOpen = false;
+            persistColumns();
+          }
+        }
         renderBoard();
         toast("Kanban importado.");
       } catch {
@@ -1728,6 +1981,12 @@
     });
 
     document.addEventListener("click", event => {
+      if (ignoreColumnEditorClick) {
+        ignoreColumnEditorClick = false;
+      } else if (columnEditor) {
+        const editingHeader = board.querySelector(".column-header.is-editing");
+        if (!editingHeader?.contains(event.target)) commitColumnEdit();
+      }
       if (!event.target.closest(".card-menu-wrap") && !event.target.closest("#topMenu") && !event.target.closest("#moreButton")) closeMenus();
     });
 
@@ -1741,6 +2000,20 @@
 
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
+      if (columnEditor && columnPaletteOpen) {
+        event.preventDefault();
+        columnPaletteOpen = false;
+        const pop = board.querySelector(".column-color-pop");
+        const dot = board.querySelector(".column-dot-btn");
+        if (pop) pop.hidden = true;
+        if (dot) dot.setAttribute("aria-expanded", "false");
+        return;
+      }
+      if (columnEditor) {
+        event.preventDefault();
+        cancelColumnEdit();
+        return;
+      }
       closeMenus();
       if (!cardModal.hidden) closeCardModal();
       if (!newCardModal.hidden) closeNewCardModal();
@@ -1769,6 +2042,22 @@
     },
     getCards() {
       return JSON.parse(JSON.stringify(cards));
+    },
+    getColumns() {
+      return columnDocument();
+    },
+    replaceColumns(payload) {
+      const next = readColumnDocument(payload);
+      if (!next) return;
+      suppressSharedEvents = true;
+      columnMeta = next;
+      columnEditor = null;
+      columnPaletteOpen = false;
+      try {
+        localStorage.setItem(COLUMN_META_KEY, JSON.stringify(columnMeta));
+      } catch {}
+      renderBoard();
+      suppressSharedEvents = false;
     },
     replaceCards(nextCards) {
       suppressSharedEvents = true;

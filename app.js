@@ -488,7 +488,7 @@
   }
 
   function cardTags(card) {
-    const source = Array.isArray(card?.tags) && card.tags.length
+    const source = Array.isArray(card?.tags)
       ? card.tags
       : String(card?.epic || "").split("/");
     const tags = [];
@@ -507,7 +507,7 @@
     return {
       id: card?.id || uid(),
       title: String(card?.title || "Tarefa"),
-      epic: tags.length ? tags.join(" / ") : String(card?.epic || ""),
+      epic: tags.join(" / "),
       tags,
       assignee,
       priority: PRIORITIES[card?.priority] ? card.priority : "medium",
@@ -1063,17 +1063,149 @@
     toast("Tarefa excluída.");
   }
 
+  function knownTags() {
+    const tags = [];
+    cards.forEach(card => {
+      cardTags(card).forEach(tag => {
+        if (!tags.some(item => item.toLowerCase() === tag.toLowerCase())) tags.push(tag);
+      });
+    });
+    return tags.sort((a, b) => a.localeCompare(b, "pt"));
+  }
+
+  function addWorkingTag(text) {
+    if (!workingCard) return false;
+    const clean = String(text || "").replace(/\s+/g, " ").trim().slice(0, 40);
+    if (!clean || clean.toLowerCase() === "geral") return false;
+    if (!Array.isArray(workingCard.tags)) workingCard.tags = cardTags(workingCard);
+    const known = knownTags().find(tag => tag.toLowerCase() === clean.toLowerCase());
+    const next = known || clean;
+    if (workingCard.tags.some(tag => tag.toLowerCase() === next.toLowerCase())) return false;
+    if (workingCard.tags.length >= 6) {
+      toast("Essa tarefa já tem 6 tags.");
+      return false;
+    }
+    workingCard.tags.push(next);
+    return true;
+  }
+
+  function commitTagInput() {
+    const input = $("#tagInput");
+    if (!input) return;
+    const text = input.value;
+    if (!text.trim()) return;
+    input.value = "";
+    addWorkingTag(text);
+  }
+
+  function availableTags() {
+    const current = Array.isArray(workingCard?.tags) ? workingCard.tags : [];
+    const query = normalize($("#tagInput")?.value || "");
+    return knownTags().filter(tag => {
+      if (current.some(item => item.toLowerCase() === tag.toLowerCase())) return false;
+      return !query || normalize(tag).includes(query);
+    });
+  }
+
+  let tagMenuOpen = false;
+  let ignoreTagMenuClose = false;
+  let pendingTagDelete = "";
+
+  function hideTagMenu() {
+    tagMenuOpen = false;
+    const menu = $("#tagMenu");
+    if (menu) {
+      menu.hidden = true;
+      menu.innerHTML = "";
+    }
+    $("#tagInput")?.setAttribute("aria-expanded", "false");
+  }
+
+  function renderTagMenu() {
+    const menu = $("#tagMenu");
+    const input = $("#tagInput");
+    if (!menu || !workingCard) return;
+    const tags = availableTags();
+    if (!tagMenuOpen || !tags.length) {
+      menu.innerHTML = "";
+      menu.hidden = true;
+      input?.setAttribute("aria-expanded", "false");
+      return;
+    }
+    menu.innerHTML = tags.map(tag => `
+      <div class="tag-option">
+        <button type="button" class="tag-option-label" data-add-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</button>
+        <button type="button" class="tag-remove" data-remove-tag="${escapeHTML(tag)}" aria-label="Remover tag ${escapeHTML(tag)} do programa">×</button>
+      </div>
+    `).join("");
+    menu.hidden = false;
+    input?.setAttribute("aria-expanded", "true");
+  }
+
+  function stripTag(card, tag) {
+    const next = cardTags(card).filter(item => item.toLowerCase() !== tag.toLowerCase());
+    card.tags = next;
+    card.epic = next.join(" / ");
+  }
+
+  function closeTagDeleteConfirm() {
+    pendingTagDelete = "";
+    const dialog = $("#tagDeleteConfirm");
+    if (dialog) dialog.hidden = true;
+  }
+
+  function askRemoveKnownTag(tag) {
+    pendingTagDelete = tag;
+    const text = $("#tagDeleteText");
+    if (text) text.textContent = `Remover a tag “${tag}” do programa? Ela sai de todas as tarefas.`;
+    const dialog = $("#tagDeleteConfirm");
+    if (dialog) dialog.hidden = false;
+    $("#tagDeleteCancel")?.focus();
+  }
+
+  function confirmRemoveKnownTag() {
+    const tag = pendingTagDelete;
+    if (!tag) return;
+    closeTagDeleteConfirm();
+    cards.forEach(card => stripTag(card, tag));
+    if (workingCard) stripTag(workingCard, tag);
+    persist();
+    renderBoard();
+    renderTagEditor();
+    $("#tagInput")?.focus();
+  }
+
+  function renderTagEditor() {
+    if (!workingCard) return;
+    if (!Array.isArray(workingCard.tags)) workingCard.tags = cardTags(workingCard);
+    const list = $("#tagList");
+    list.innerHTML = "";
+    workingCard.tags.forEach(tag => {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.innerHTML = `<span>${escapeHTML(tag)}</span><button type="button" class="tag-remove" aria-label="Remover tag ${escapeHTML(tag)} desta tarefa">×</button>`;
+      chip.querySelector("button").addEventListener("click", () => {
+        workingCard.tags = workingCard.tags.filter(item => item.toLowerCase() !== tag.toLowerCase());
+        renderTagEditor();
+      });
+      list.appendChild(chip);
+    });
+    renderTagMenu();
+  }
+
   function openCard(id) {
     const card = cards.find(item => item.id === id);
     if (!card) return;
 
     activeCardId = id;
     workingCard = JSON.parse(JSON.stringify(card));
+    workingCard.tags = cardTags(workingCard);
 
-    const tags = cardTags(workingCard);
     const kicker = $("#modalEpic");
-    kicker.textContent = tags.join(" · ");
-    kicker.hidden = !tags.length;
+    if (kicker) kicker.hidden = true;
+    const tagInput = $("#tagInput");
+    if (tagInput) tagInput.value = "";
+    renderTagEditor();
     showCardTitle(workingCard.title || "Detalhes da tarefa");
     $("#editAssignee").value = workingCard.assignee || "Adriel";
     $("#editPriority").value = workingCard.priority || "medium";
@@ -1138,6 +1270,8 @@
     cardModal.hidden = true;
     activeCardId = null;
     workingCard = null;
+    hideTagMenu();
+    closeTagDeleteConfirm();
     document.body.style.overflow = "";
   }
 
@@ -1147,6 +1281,7 @@
       const next = $("#editTitle").value.replace(/\s+/g, " ").trim().slice(0, 240);
       if (next) workingCard.title = next;
     }
+    commitTagInput();
     workingCard.tags = cardTags(workingCard);
     workingCard.epic = workingCard.tags.join(" / ");
     workingCard.assignee = $("#editAssignee").value;
@@ -2045,6 +2180,52 @@
       event.preventDefault();
       commitCardTitleEdit();
     });
+    $("#tagDeleteCancel").addEventListener("click", closeTagDeleteConfirm);
+    $("#tagDeleteOk").addEventListener("click", confirmRemoveKnownTag);
+    $("#tagDeleteConfirm").addEventListener("click", event => {
+      if (event.target === event.currentTarget) closeTagDeleteConfirm();
+    });
+
+    const tagInput = $("#tagInput");
+    const tagMenu = $("#tagMenu");
+    tagInput.addEventListener("mousedown", () => {
+      ignoreTagMenuClose = true;
+      tagMenuOpen = true;
+      renderTagMenu();
+    });
+    tagInput.addEventListener("click", () => {
+      tagMenuOpen = true;
+      renderTagMenu();
+    });
+    tagInput.addEventListener("focus", () => {
+      tagMenuOpen = true;
+      renderTagMenu();
+    });
+    tagInput.addEventListener("input", () => {
+      tagMenuOpen = true;
+      renderTagMenu();
+    });
+    tagInput.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      commitTagInput();
+      renderTagEditor();
+      tagInput.focus();
+    });
+    tagMenu.addEventListener("mousedown", event => {
+      const removeBtn = event.target.closest("[data-remove-tag]");
+      const addBtn = event.target.closest("[data-add-tag]");
+      if (!removeBtn && !addBtn) return;
+      event.preventDefault();
+      if (removeBtn) {
+        askRemoveKnownTag(removeBtn.getAttribute("data-remove-tag"));
+        return;
+      }
+      addWorkingTag(addBtn.getAttribute("data-add-tag"));
+      tagInput.value = "";
+      renderTagEditor();
+      tagInput.focus();
+    });
 
     $("#searchInput").addEventListener("input", renderBoard);
     $("#assigneeFilter").addEventListener("change", renderBoard);
@@ -2079,6 +2260,11 @@
         if (!heading?.contains(event.target)) commitCardTitleEdit();
       }
       if (!event.target.closest(".card-menu-wrap") && !event.target.closest("#topMenu") && !event.target.closest("#moreButton")) closeMenus();
+      if (ignoreTagMenuClose) {
+        ignoreTagMenuClose = false;
+      } else if (!event.target.closest(".tag-input-wrap") && !event.target.closest("#tagDeleteConfirm")) {
+        hideTagMenu();
+      }
     });
 
     [cardModal, newCardModal].forEach(backdrop => {
@@ -2108,6 +2294,17 @@
       if (cardTitleEditing) {
         event.preventDefault();
         cancelCardTitleEdit();
+        return;
+      }
+      if (!$("#tagDeleteConfirm")?.hidden) {
+        event.preventDefault();
+        closeTagDeleteConfirm();
+        return;
+      }
+      const tagMenu = $("#tagMenu");
+      if (tagMenu && !tagMenu.hidden) {
+        event.preventDefault();
+        hideTagMenu();
         return;
       }
       closeMenus();

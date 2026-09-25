@@ -163,6 +163,62 @@ button{cursor:pointer}
 .modal-close{width:30px;height:30px;border:0;border-radius:7px;background:#fff;color:#8d948f;font-size:19px}
 .modal-close:hover{background:#f5f6f5}
 .modal-body{overflow:auto;padding:16px 18px 18px}
+.modal-body.card-layout{
+  display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:0;flex:1;min-height:0;
+  padding:0;overflow:hidden
+}
+.card-main,.card-side{min-width:0;min-height:0}
+.card-main{padding:16px 18px 18px;overflow:auto}
+.card-side{
+  display:flex;flex-direction:column;gap:12px;padding:14px 14px 18px;overflow:visible;
+  border-left:1px solid var(--line);background:#fbfcfb
+}
+.side-field{display:flex;flex-direction:column;gap:6px}
+.side-field>span{color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.side-field select,.side-field input{
+  width:100%;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--text);padding:8px 9px;font-size:10px;outline:none
+}
+.side-field select:focus,.side-field input:focus{border-color:#9fcdb4;box-shadow:0 0 0 3px rgba(31,157,97,.07)}
+.tag-list{display:flex;flex-wrap:wrap;gap:4px}
+.tag-list:empty{display:none}
+.tag-chip{
+  display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:3px 3px 3px 7px;
+  border:1px solid var(--line2);border-radius:999px;background:#fff;color:#4e564f;font-size:9px;font-weight:700
+}
+.tag-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag-field{position:relative;z-index:4}
+.tag-input-wrap{position:relative}
+.tag-menu{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:6;
+  max-height:168px;overflow:auto;padding:4px;
+  border:1px solid var(--line2);border-radius:8px;background:#fff;
+  box-shadow:0 10px 24px rgba(18,27,21,.12)
+}
+.tag-menu[hidden]{display:none}
+.tag-option{display:flex;align-items:center;gap:2px;border-radius:6px}
+.tag-option:hover{background:#f4f7f5}
+.tag-option-label{
+  flex:1;min-width:0;padding:6px 8px;border:0;background:transparent;
+  color:var(--text);font-size:10px;font-weight:700;text-align:left;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.tag-remove{
+  flex:none;width:16px;height:16px;margin-right:4px;border:0;border-radius:50%;
+  background:transparent;color:var(--red);font-size:13px;font-weight:700;line-height:1;padding:0
+}
+.tag-chip .tag-remove{margin-right:1px}
+.tag-remove:hover{background:#fff1f1;color:var(--red)}
+.tag-confirm{
+  position:fixed;inset:0;z-index:160;display:grid;place-items:center;
+  padding:16px;background:rgba(25,31,27,.32)
+}
+.tag-confirm[hidden]{display:none}
+.tag-confirm-card{
+  width:min(340px,100%);padding:16px 16px 14px;border:1px solid var(--line2);border-radius:12px;
+  background:#fff;box-shadow:0 24px 70px rgba(20,28,23,.18)
+}
+.tag-confirm-card p{margin:0;font-size:13px;line-height:1.45}
+.tag-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .form-section{padding-bottom:2px}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
 .form-grid label,.field,.subcard-grid label{display:flex;flex-direction:column;gap:5px}
@@ -225,6 +281,9 @@ button{cursor:pointer}
   .column-list{min-height:calc(100vh - 220px)}
   .column-header{top:auto}
   .form-grid{grid-template-columns:repeat(2,1fr)}
+  .modal-body.card-layout{grid-template-columns:1fr;overflow:auto}
+  .card-main,.card-side{overflow:visible}
+  .card-side{border-left:0;border-top:1px solid var(--line)}
 }
 @media(max-width:480px){
   .topbar{grid-template-columns:1fr auto}

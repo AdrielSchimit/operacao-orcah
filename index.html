@@ -295,73 +295,84 @@
         <button class="modal-close" id="closeCardModal" type="button" aria-label="Fechar">×</button>
       </header>
 
-      <div class="modal-body">
-        <section class="form-section compact-task-form">
-          <div class="form-grid compact-primary-grid compact-card-meta">
-            <label>
-              <span>Responsável</span>
-              <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>
-            </label>
-            <label>
-              <span>Status</span>
-              <select id="editStatus">
-                <option value="backlog">Backlog</option>
-                <option value="planned">Planejado</option>
-                <option value="doing">Em andamento</option>
-                <option value="review">Revisão</option>
-                <option value="done">Concluído</option>
-              </select>
-            </label>
-          </div>
-
-          <details class="compact-details">
-            <summary>Mais opções</summary>
-            <div class="form-grid compact-extra-grid">
+      <div class="modal-body card-layout">
+        <div class="card-main">
+          <section class="form-section compact-task-form">
+            <div class="form-grid compact-primary-grid compact-card-meta">
               <label>
-                <span>Prioridade</span>
-                <select id="editPriority">
-                  <option value="critical">Crítica</option>
-                  <option value="high">Alta</option>
-                  <option value="medium">Média</option>
-                  <option value="low">Baixa</option>
-                </select>
+                <span>Responsável</span>
+                <select id="editAssignee"><option>Adriel</option><option>Cesar</option></select>
               </label>
               <label>
-                <span>Pontos</span>
-                <select id="editPoints">
-                  <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                  <option value="5">5</option><option value="8">8</option><option value="13">13</option>
+                <span>Status</span>
+                <select id="editStatus">
+                  <option value="backlog">Backlog</option>
+                  <option value="planned">Planejado</option>
+                  <option value="doing">Em andamento</option>
+                  <option value="review">Revisão</option>
+                  <option value="done">Concluído</option>
                 </select>
               </label>
             </div>
-            <label class="field">
-              <span>Definição de pronto</span>
-              <textarea id="editDescription" rows="2" placeholder="Opcional"></textarea>
-            </label>
-            <label class="field notes-field">
-              <span>Notas</span>
-              <textarea id="editNotes" rows="2" placeholder="Links, decisões ou bloqueios"></textarea>
-            </label>
+
+            <details class="compact-details">
+              <summary>Mais opções</summary>
+              <label class="field">
+                <span>Definição de pronto</span>
+                <textarea id="editDescription" rows="2" placeholder="Opcional"></textarea>
+              </label>
+              <label class="field notes-field">
+                <span>Notas</span>
+                <textarea id="editNotes" rows="2" placeholder="Links, decisões ou bloqueios"></textarea>
+              </label>
+            </details>
+          </section>
+
+          <details class="detail-section compact-details task-detail-group">
+            <summary>Subcards <span id="subcardSummaryCount"></span></summary>
+            <div class="section-title compact-section-title">
+              <p>Quebre a tarefa apenas quando precisar.</p>
+              <button class="button button-ghost" id="addSubcardBtn" type="button">Adicionar</button>
+            </div>
+            <div id="subcardsContainer" class="subcards"></div>
           </details>
-        </section>
 
-        <details class="detail-section compact-details task-detail-group">
-          <summary>Subcards <span id="subcardSummaryCount"></span></summary>
-          <div class="section-title compact-section-title">
-            <p>Quebre a tarefa apenas quando precisar.</p>
-            <button class="button button-ghost" id="addSubcardBtn" type="button">Adicionar</button>
-          </div>
-          <div id="subcardsContainer" class="subcards"></div>
-        </details>
+          <details class="detail-section compact-details task-detail-group">
+            <summary>Checklist <span id="checklistSummaryCount"></span></summary>
+            <div class="section-title compact-section-title">
+              <p>Itens objetivos e comentários de execução.</p>
+              <button class="button button-ghost" id="addChecklistBtn" type="button">Adicionar</button>
+            </div>
+            <div id="checklistContainer" class="checklist"></div>
+          </details>
+        </div>
 
-        <details class="detail-section compact-details task-detail-group">
-          <summary>Checklist <span id="checklistSummaryCount"></span></summary>
-          <div class="section-title compact-section-title">
-            <p>Itens objetivos e comentários de execução.</p>
-            <button class="button button-ghost" id="addChecklistBtn" type="button">Adicionar</button>
+        <aside class="card-side" aria-label="Detalhes da tarefa">
+          <div class="side-field tag-field">
+            <span>Tags</span>
+            <div id="tagList" class="tag-list"></div>
+            <div class="tag-input-wrap">
+              <input id="tagInput" type="text" maxlength="40" placeholder="Adicionar tag" autocomplete="off" aria-autocomplete="list" aria-controls="tagMenu" aria-expanded="false">
+              <div id="tagMenu" class="tag-menu" hidden></div>
+            </div>
           </div>
-          <div id="checklistContainer" class="checklist"></div>
-        </details>
+          <label class="side-field">
+            <span>Prioridade</span>
+            <select id="editPriority">
+              <option value="critical">Crítica</option>
+              <option value="high">Alta</option>
+              <option value="medium">Média</option>
+              <option value="low">Baixa</option>
+            </select>
+          </label>
+          <label class="side-field">
+            <span>Pontos</span>
+            <select id="editPoints">
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="5">5</option><option value="8">8</option><option value="13">13</option>
+            </select>
+          </label>
+        </aside>
       </div>
 
       <footer class="modal-footer">
@@ -478,6 +489,16 @@
       </div>
     </article>
   </template>
+
+  <div id="tagDeleteConfirm" class="tag-confirm" hidden role="dialog" aria-modal="true" aria-labelledby="tagDeleteText">
+    <div class="tag-confirm-card">
+      <p id="tagDeleteText"></p>
+      <div class="tag-confirm-actions">
+        <button class="button button-ghost" id="tagDeleteCancel" type="button">Cancelar</button>
+        <button class="button button-danger" id="tagDeleteOk" type="button">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <div id="toastRegion" class="toast-region" aria-live="polite"></div>
   <script src="./access.js"></script>

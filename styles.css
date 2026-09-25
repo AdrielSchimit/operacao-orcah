@@ -312,10 +312,14 @@ button{cursor:pointer}
 .subtask-check{
   width:16px;height:16px;margin-top:1px;padding:0;border:1.5px solid #c5cbc7;border-radius:50%;background:#fff
 }
-.subtask.done .subtask-check{background:var(--green);border-color:var(--green)}
-.subtask.done .subtask-check::after{
-  content:"";display:block;width:7px;height:4px;margin:3px auto 0;
-  border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg)
+.subtask.done .subtask-check{background:var(--green);border-color:var(--green);display:grid;place-items:center}
+.subtask .check-item.done .check-toggle{display:grid;place-items:center;background:var(--green);border-color:var(--green)}
+.subtask.done .subtask-check::after,
+.subtask .check-item.done .check-toggle::after{
+  content:"";display:block;box-sizing:border-box;width:8px;height:4px;margin:0;padding:0;
+  font-size:0;line-height:0;font-weight:400;text-align:left;
+  border-left:3px solid #fff;border-bottom:3px solid #fff;
+  transform:translateY(-1px) rotate(-45deg)
 }
 .subtask-remove{
   width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:transparent;font-size:15px
@@ -331,10 +335,9 @@ button{cursor:pointer}
 .fold-add:hover{color:var(--green)}
 .subtask .check-item{padding:0;border:0;border-radius:0;background:transparent}
 .subtask .check-main{grid-template-columns:16px minmax(0,1fr) auto;gap:8px}
-.subtask .check-toggle{width:15px;height:15px;margin-top:1px;border-radius:50%;border-width:1.5px}
-.subtask .check-item.done .check-toggle::after{
-  content:"";width:6px;height:3px;margin:3px auto 0;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;
-  transform:rotate(-45deg);font-size:0;line-height:0
+.subtask .check-toggle{
+  box-sizing:border-box;width:16px;height:16px;min-width:16px;margin:1px 0 0;padding:0;
+  border:1.5px solid #c5cbc7;border-radius:50%;background:#fff;line-height:0;font-size:0
 }
 .subtask .check-text{padding:0!important;font-size:12px}
 .subtask .check-remove{color:transparent}

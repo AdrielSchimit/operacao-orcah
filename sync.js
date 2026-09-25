@@ -172,7 +172,7 @@
       .channel("orcah-ops-shared-workspace")
       .on("postgres_changes", {
         event: "*",
-        schema: "public",
+        schema: "ops_api",
         table: "orcah_ops_shared_documents",
         filter: `workspace_id=eq.${WORKSPACE_ID}`
       }, payload => {
@@ -204,7 +204,8 @@
 
     if (!sb) {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false }
+        auth: { persistSession: false, autoRefreshToken: false },
+        db: { schema: "ops_api" }
       });
     }
 

@@ -139,6 +139,79 @@
     return { list: [...list, makeStrategyCard()], added: true };
   }
 
+  const VERIFIED_DONE_CHECKS = new Set([
+    "Desconto com escolha entre % e R$ + valor real descontado",
+    "Exibir Subtotal → Desconto → Total final",
+    "Formas aceitas: Pix, cartão, boleto, dinheiro e transferência",
+    "Condição: à vista, entrada + saldo, 2x, 3x ou personalizado",
+    "Entrada/sinal em % ou R$ com saldo restante automático",
+    "Validade da proposta, prazo de execução e observações com presets úteis",
+    "Pouquíssimos campos obrigatórios",
+    "Campos avançados escondidos em Mais opções",
+    "Linguagem simples, sem termos de ERP/SaaS",
+    "Botões grandes e fáceis de tocar no celular",
+    "Fluxo obrigatório: Cadastro → Onboarding → Cliente → Serviço/Item → Orçamento → Proposta → Link → resposta",
+    "Casos com decimais",
+    "Casos com desconto"
+  ]);
+
+  function applyVerifiedProgress(list) {
+    let changed = false;
+
+    const next = list.map(card => {
+      let nextCard = card;
+
+      if (card.id === STRATEGY_CARD_ID) {
+        const subcards = (card.subcards || []).map(sub => {
+          const checklist = (sub.checklist || []).map(item => {
+            if (!item.done && VERIFIED_DONE_CHECKS.has(item.text)) {
+              changed = true;
+              return { ...item, done: true };
+            }
+            return item;
+          });
+
+          let status = sub.status;
+          if (sub.id === "norte-fechamento" && checklist.length && checklist.every(item => item.done)) {
+            if (status !== "done") changed = true;
+            status = "done";
+          } else if (
+            sub.id === "norte-ux-mobile" &&
+            checklist.some(item => item.done) &&
+            status === "planned"
+          ) {
+            changed = true;
+            status = "doing";
+          }
+
+          return { ...sub, checklist, status };
+        });
+
+        nextCard = { ...card, subcards };
+      }
+
+      if (card.title === "Testes automáticos das regras de dinheiro") {
+        const checklist = (card.checklist || []).map(item => {
+          if (!item.done && VERIFIED_DONE_CHECKS.has(item.text)) {
+            changed = true;
+            return { ...item, done: true };
+          }
+          return item;
+        });
+        const status =
+          checklist.some(item => item.done) && card.status === "planned"
+            ? "doing"
+            : card.status;
+        if (status !== card.status) changed = true;
+        nextCard = { ...nextCard, checklist, status };
+      }
+
+      return nextCard;
+    });
+
+    return { list: next, changed };
+  }
+
   const PRIORITIES = {
     critical: { label: "Crítica" },
     high: { label: "Alta" },
@@ -549,7 +622,9 @@
   }
 
   let suppressSharedEvents = false;
-  let cards = ensureStrategyCard(loadCards()).list.map(sanitizeCard);
+  const initialCards = ensureStrategyCard(loadCards()).list.map(sanitizeCard);
+  const initialProgress = applyVerifiedProgress(initialCards);
+  let cards = initialProgress.list.map(sanitizeCard);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
   let activeCardId = null;
   let workingCard = null;
@@ -2434,11 +2509,12 @@
       suppressSharedEvents = true;
       const incoming = (Array.isArray(nextCards) ? nextCards : []).map(sanitizeCard);
       const ensured = ensureStrategyCard(incoming);
-      cards = ensured.list.map(sanitizeCard);
+      const progress = applyVerifiedProgress(ensured.list);
+      cards = progress.list.map(sanitizeCard);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
       renderBoard();
       suppressSharedEvents = false;
-      if (ensured.added) {
+      if (ensured.added || progress.changed) {
         setTimeout(() => persist(), 0);
       }
     },

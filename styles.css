@@ -768,3 +768,30 @@ body.ux-block-dragging{
   .compact-primary-grid,.compact-new-task .compact-primary-grid,.compact-extra-grid,.compact-new-task .compact-extra-grid{grid-template-columns:1fr}
   .compact-primary-grid .wide{grid-column:auto}
 }
+
+
+/* Strategic north-star card */
+.task-card.strategy-card{
+  position:relative;
+  border-color:#efb7b7;
+  background:#fff7f7;
+  box-shadow:0 4px 14px rgba(190,55,55,.08);
+}
+.task-card.strategy-card:hover{
+  border-color:#df8f8f;
+  box-shadow:0 7px 20px rgba(190,55,55,.12);
+}
+.strategy-label{
+  display:inline-flex;
+  margin:0 0 7px 14px;
+  padding:3px 6px;
+  border-radius:999px;
+  background:#fde5e5;
+  color:#b62e2e;
+  font-size:6.5px;
+  font-weight:800;
+  letter-spacing:.08em;
+}
+.task-card.strategy-card h3{color:#7f2525}
+.task-card.strategy-card .card-block{color:#a75a5a}
+.task-card.strategy-card .points-text{color:#9a4a4a}

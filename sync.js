@@ -6,6 +6,7 @@
   const WORKSPACE_ID = "operacao-orcah";
   const CLIENT_KEY = "operacao-orcah-client-id-v1";
   const LAST_REV_KEY = "operacao-orcah-revisions-v1";
+  const FILTER_STATE_KEY = "operacao-orcah-filters-v1";
 
   const $ = selector => document.querySelector(selector);
   const clientId = (() => {
@@ -236,6 +237,60 @@
     if (failed.length) scheduleReconnect(5000);
   }
 
+  function readFilterState() {
+    try {
+      const state = JSON.parse(localStorage.getItem(FILTER_STATE_KEY) || "{}");
+      return {
+        search: typeof state.search === "string" ? state.search.slice(0, 200) : "",
+        assignee: ["all", "Adriel", "Cesar"].includes(state.assignee) ? state.assignee : "all",
+        priority: ["all", "critical", "high", "medium", "low"].includes(state.priority) ? state.priority : "all"
+      };
+    } catch {
+      return { search: "", assignee: "all", priority: "all" };
+    }
+  }
+
+  function saveFilterState() {
+    const search = $("#searchInput");
+    const assignee = $("#assigneeFilter");
+    const priority = $("#priorityFilter");
+    if (!search || !assignee || !priority) return;
+    localStorage.setItem(FILTER_STATE_KEY, JSON.stringify({
+      search: search.value,
+      assignee: assignee.value,
+      priority: priority.value
+    }));
+  }
+
+  function restoreFilterState() {
+    const search = $("#searchInput");
+    const assignee = $("#assigneeFilter");
+    const priority = $("#priorityFilter");
+    if (!search || !assignee || !priority) return;
+
+    const state = readFilterState();
+    search.value = state.search;
+    assignee.value = state.assignee;
+    priority.value = state.priority;
+
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function wireFilterState() {
+    const search = $("#searchInput");
+    const assignee = $("#assigneeFilter");
+    const priority = $("#priorityFilter");
+    const clear = $("#clearFiltersBtn");
+    if (!search || !assignee || !priority) return;
+
+    search.addEventListener("input", saveFilterState);
+    assignee.addEventListener("change", saveFilterState);
+    priority.addEventListener("change", saveFilterState);
+    clear?.addEventListener("click", () => setTimeout(saveFilterState, 0));
+
+    restoreFilterState();
+  }
+
   window.addEventListener("orcah:shared-change", event => {
     const key = event.detail?.document;
     if (docs[key]) schedulePush(key);
@@ -250,6 +305,8 @@
     connect();
   });
   window.addEventListener("offline", () => setStatus("offline","Offline"));
+
+  wireFilterState();
 
   if (window.ORCAH_ACCESS_USER) connect();
   else setStatus("syncing","Aguardando acesso");
